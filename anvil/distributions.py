@@ -345,6 +345,49 @@ def semicircle_distribution(n_lattice, radius=pi, mean=0):
     return SemicircleDist(n_lattice, radius=radius, mean=mean)
 
 
+class MixtureDist:
+    """Class for creating mixture distributions (convex combinations of distributions),
+    useful for training flows against more challenging multi-model distributions.
+
+    The mixture weights and distribution parameters are chosen ar random, using a
+    seed to ensure reproducibility.
+
+    Parameters
+    ----------
+    dists: list
+        List of distribution objects
+
+    Notes
+    -----
+    The distributions must have a method called log_density which returns the
+    logarithm of the *normalised* pdf for a given input.
+    """
+
+    def __init__(self, dists):
+        self.dists = dists
+        torch.manual_seed(0)
+        self.weights = torch.softmax(torch.empty(len(dists)).uniform_(0, 1), dim=0)
+
+        self.support = dists[0].support
+
+    def log_density(self, sample):
+        """Return the logarithm of the probability density function for the mixture
+        of distributions."""
+        pdf = 0
+        for weight, dist in zip(self.weights, self.dists):
+            pdf += weight * torch.exp(dist.log_density(sample))
+        # NOTE: this step is numerically unstable for small / zero densities
+        return torch.log(pdf)
+
+    @property
+    def pdf(self):
+        x, _ = self.dists[0].pdf[0]
+        result = 0
+        for weight, dist in zip(self.weights, self.dists):
+            result += weight * dist.pdf[0][1]
+        return ((x, result),)
+
+
 class PhiFourAction:
     """Return the phi^4 action given either a single state size
     (1, length * length) or a stack of N states (N, length * length).
@@ -532,6 +575,19 @@ class O3Action:
         return log_volume_element - action
 
 
+def von_mises_mixture(lattice_size, n_dists=2, concentration=4.0):
+    """Returns mixture of von Mises distributions."""
+    torch.manual_seed(0)  # so we get the same output for training and sampling
+    dists = [
+        VonMisesDist(lattice_size, concentration=conc, mean=mean)
+        for conc, mean in zip(
+            torch.ones(n_dists) * concentration,
+            torch.empty(n_dists).uniform_(0, 2 * pi),
+        )
+    ]
+    return MixtureDist(dists)
+
+
 def phi_four_action(m_sq, lam, geometry, use_arxiv_version):
     """returns instance of PhiFourAction"""
     return PhiFourAction(
@@ -558,5 +614,11 @@ BASE_OPTIONS = {
     "semicircle": semicircle_distribution,
 }
 TARGET_OPTIONS = dict(
-    {"phi_four": phi_four_action, "o2": o2_action, "o3": o3_action,}, **BASE_OPTIONS
+    {
+        "von_mises_mixture": von_mises_mixture,
+        "phi_four": phi_four_action,
+        "o2": o2_action,
+        "o3": o3_action,
+    },
+    **BASE_OPTIONS
 )
