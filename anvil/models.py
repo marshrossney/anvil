@@ -4,7 +4,7 @@ models.py
 Module containing reportengine actions which return callable objects that execute
 normalising flows constructed from multiple layers via function composition.
 """
-from anvil.core import Sequential, RedBlackSequence
+from anvil.core import Sequential, CoupleRedBlack, CoupleRedBlackNd, CoupleComponents
 import anvil.layers as layers
 
 
@@ -46,8 +46,8 @@ def spline_layer_spec(
 def real_nvp(n_lattice, affine_layer_spec, n_affine=1):
     """Action that returns a callable object that performs a sequence of `n_affine`
     affine coupling transformations on both partitions of the input vector."""
-    return RedBlackSequence(
-        [layers.AffineLayer,], n_lattice, affine_layer_spec, n_couple=n_affine
+    return CoupleRedBlack(
+        layers.AffineLayer, n_lattice, affine_layer_spec, n_couple=n_affine
     )
 
 
@@ -66,7 +66,7 @@ def real_nvp_sphere(n_lattice, affine_layer_spec, n_affine=1):
     inverse projection back to S2 - {0}"""
     return Sequential(
         layers.ProjectionLayer2D(),
-        RedBlackSequence(
+        CoupleRedBlackNd(
             [layers.AffineLayer, layers.AffineLayer],
             n_lattice,
             affine_layer_spec,
@@ -84,8 +84,8 @@ def ncp_circle(
     """Action that returns a callable object that performs a sequence of transformations
     from (0, 2\pi) -> (0, 2\pi), each of which are the composition of a stereographic
     projection transformation, an affine transformation, and the inverse projection."""
-    return RedBlackSequence(
-        [layers.NCPLayer,], n_lattice, ncp_layer_spec, n_couple=n_couple,
+    return CoupleRedBlack(
+        layers.NCPLayer, n_lattice, ncp_layer_spec, n_couple=n_couple,
     )
 
 
@@ -94,7 +94,9 @@ def linear_spline(
 ):
     """Action that returns a callable object that performs a pair of linear spline
     transformations, one on each half of the input vector."""
-    return RedBlackSequence([layers.LinearSplineLayer,], n_lattice, spline_layer_spec)
+    return Sequential(
+        CoupleRedBlack(layers.LinearSplineLayer, n_lattice, spline_layer_spec),
+    )
 
 
 def quadratic_spline(
@@ -102,23 +104,29 @@ def quadratic_spline(
 ):
     """Action that returns a callable object that performs a pair of quadratic spline
     transformations, one on each half of the input vector."""
-    return RedBlackSequence(
-        [layers.QuadraticSplineLayer,], n_lattice, spline_layer_spec
+    return Sequential(
+        CoupleRedBlack(layers.QuadraticSplineLayer, n_lattice, spline_layer_spec,),
     )
 
 
 def circular_spline(n_lattice, spline_layer_spec):
     """Action that returns a callable object that performs a pair of quadratic spline
     transformations, one on each half of the input vector."""
-    return RedBlackSequence([layers.CircularSplineLayer,], n_lattice, spline_layer_spec)
+    return CoupleRedBlack(layers.CircularSplineLayer, n_lattice, spline_layer_spec,)
 
 
 def spherical_spline(n_lattice, spline_layer_spec):
-    # TODO: attempt single rational quadratic spline transformation for both components
-    return RedBlackSequence(
-        [layers.QuadraticSplineLayer, layers.CircularSplineLayer],
-        n_lattice,
-        spline_layer_spec,
+    return Sequential(
+        CoupleRedBlackNd(
+            [layers.QuadraticSplineLayer, layers.CircularSplineLayer],
+            n_lattice,
+            spline_layer_spec,
+        ),
+        CoupleComponents(
+            [layers.QuadraticSplineLayer, layers.CircularSplineLayer],
+            n_lattice,
+            spline_layer_spec,
+        ),
     )
 
 
