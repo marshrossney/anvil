@@ -4,7 +4,7 @@ models.py
 Module containing reportengine actions which return callable objects that execute
 normalising flows constructed from multiple layers via function composition.
 """
-from anvil.core import Sequential, RBSequential, RBLayerNd
+from anvil.core import Sequential, RBSequential, RBLayerNd, AutoregressiveLayer
 import anvil.layers as layers
 
 
@@ -64,7 +64,7 @@ def real_nvp_circle(real_nvp):
     )
 
 
-def real_nvp_sphere(n_lattice, affine_layer_spec, n_affine=2):
+def real_nvp_sphere_old(n_lattice, affine_layer_spec, n_affine=2):
     """Action that returns a callable object that projects an input vector from 
     S2 - {0} -> R2, performs a sequence of affine transformations, then does the
     inverse projection back to S2 - {0}"""
@@ -132,7 +132,7 @@ def circular_spline(n_lattice, spline_layer_spec):
     )
 
 
-def spherical_spline(n_lattice, spline_layer_spec):
+def spherical_spline_old(n_lattice, spline_layer_spec):
     return RBSequential(
         RBLayerNd(
             [layers.QuadraticSplineLayer, layers.CircularSplineLayer],
@@ -144,6 +144,38 @@ def spherical_spline(n_lattice, spline_layer_spec):
             n_lattice,
             spline_layer_spec,
         ),
+    )
+
+
+def spherical_spline(n_lattice, spline_layer_spec):
+    return AutoregressiveLayer(
+        [layers.QuadraticSplineLayer, layers.CircularSplineLayer],
+        n_lattice,
+        spline_layer_spec,
+    )
+
+
+def real_nvp_sphere(n_lattice, affine_layer_spec, n_affine=2):
+    """Action that returns a callable object that projects an input vector from 
+    S2 - {0} -> R2, performs a sequence of affine transformations, then does the
+    inverse projection back to S2 - {0}"""
+    return Sequential(
+        layers.ProjectionLayer2D(),
+        AutoregressiveLayer(
+            [layers.AffineLayer, layers.AffineLayer],
+            n_lattice,
+            affine_layer_spec,
+            i_start=0,
+            n_redblack=n_affine,
+        ),
+        AutoregressiveLayer(
+            [layers.AffineLayer, layers.AffineLayer],
+            n_lattice,
+            affine_layer_spec,
+            i_start=1,
+            n_redblack=n_affine,
+        ),
+        layers.InverseProjectionLayer2D(),
     )
 
 
