@@ -7,6 +7,8 @@ from itertools import cycle
 
 from reportengine import collect
 
+from anvil.utils import prod
+
 from math import pi
 
 ACTIVATION_LAYERS = {
@@ -20,14 +22,36 @@ ACTIVATION_LAYERS = {
 
 
 class Sequential(nn.Sequential):
-    """Modify the nn.Sequential class so that it takes an input vector *and* a
-    value for the current logarithm of the model density, returning an output
-    vector and the updated log density."""
+    """Modify the nn.Sequential class so that it takes an input tensor with dimensions
+    (n_batch, n_components, n_lattice) and a tensor with dimensions (n_batch, 1) for the
+    current logarithm of the model density, returning an output tensor and the updated
+    log density."""
 
-    def forward(self, x, log_dens):
+    def forward(self, x, log_density):
         for module in self:
-            x, log_dens = module(x, log_dens)
-        return x, log_dens
+            x, log_density = module(x, log_density)
+        return x, log_density
+
+
+class RBSequential(nn.Sequential):
+    """Execute a sequence of coupling layers which couple red/black lattice sites."""
+
+    def forward(self, x, log_density):
+        x_a, x_b = x.chunk(2, dim=2)
+        
+        x_b = x_b.contiguous()
+
+        counter = 0
+        for module in self:
+            x_b, x_a, log_density = module(x_a, x_b, log_density)
+            counter += 1
+
+        if counter % 2 == 0:
+            phi_out = torch.cat((x_a, x_b), dim=2)
+        else:
+            phi_out = torch.cat((x_b, x_a), dim=2)
+
+        return phi_out, log_density
 
 
 class NeuralNetwork(nn.Module):
@@ -67,18 +91,19 @@ class NeuralNetwork(nn.Module):
     def __init__(
         self,
         *,
-        size_in: int,
-        size_out: int,
+        shape_in: tuple,
+        shape_out: tuple,
         hidden_shape: list,
         activation: (str, None),
         final_activation: (str, None) = None,
         batch_normalise: bool = False,
     ):
-        super(NeuralNetwork, self).__init__()
-        self.size_in = size_in
-        self.size_out = size_out
-        self.hidden_shape = hidden_shape
+        super().__init__()
+        self.shape_out = shape_out
+        self.size_in = prod(shape_in)
+        self.size_out = prod(shape_out)
 
+        self.hidden_shape = hidden_shape
         if batch_normalise:
             self.batch_norm = nn.BatchNorm1d
         else:
@@ -115,38 +140,44 @@ class NeuralNetwork(nn.Module):
         )
         return nn.Sequential(*layers)
 
+    @staticmethod
+    def _standardise(x):
+        """Standardise the inputs along the first (component) dimensions."""
+        return (x - x.mean(dim=(0, 2), keepdim=True)) / x.std(dim=(0, 2), keepdim=True)
+
     def forward(self, x: torch.tensor):
         """Forward pass of the network."""
-        return self.network(x)
+        return self.network(self._standardise(x).view(-1, self.size_in)).view(
+            -1, *self.shape_out
+        )
 
 
-class RedBlackLayer(nn.Module):
-    # TODO: make this same format as anvil.layers so we can replace RedBlackLayer
-    # with an anvil.layers layer in the one component case
-
+class RBLayerNd(nn.Module):
     def __init__(self, coupling_layers: list, n_lattice: int, layer_spec: dict):
         super().__init__()
-        self.n_components = len(coupling_layers)
-        self.lattice_half = n_lattice // 2
-        self.size_in = self.lattice_half * self.n_components
+        n_components = len(coupling_layers)
+        lattice_half = n_lattice // 2
+
+        shape_in = (1, lattice_half)
+        shape_passive = (n_components, lattice_half)
 
         self.layers = nn.ModuleList(
             [
-                coupling_layer(self.size_in, self.lattice_half, **layer_spec)
+                coupling_layer(shape_in, shape_passive, **layer_spec)
                 for coupling_layer in coupling_layers
             ]
         )
 
     def forward(self, x_in, x_passive, log_density):
-        # TODO: might be better to switch dims so that this can be a view.
-        x_passive = x_passive.reshape(-1, self.size_in)
+        x_components = x_in.split(1, dim=1)
 
-        phi_out = torch.empty_like(x_in)
-        for i, layer in enumerate(self.layers):
-            phi_i, log_density = layer(x_in[:, i], x_passive, log_density)
-            phi_out[:, i] = phi_i
+        phi_out = []
+        for i, (x, layer) in enumerate(zip(x_components, self.layers)):
+            phi_i, _, log_density = layer(x, x_passive, log_density)
+            phi_out.append(phi_i)
 
-        return phi_out, log_density
+        phi_out = torch.cat(phi_out, dim=1)
+        return phi_out, x_passive, log_density
 
 
 class RedBlackSequence(nn.Module):
@@ -170,7 +201,7 @@ class RedBlackSequence(nn.Module):
     n_couple: int
         Number of pairs of red/black layers, which is the number of times each data
         point is transformed.
-    
+
     Attributes
     ----------
     red_layers: nn.ModuleList
@@ -227,7 +258,7 @@ class ConvexCombination(nn.Module):
     volume element, calculated using the change of variables formula.
 
     A convex combination is a weighted sum of elements
-        
+
         f(x_1, x_2, ..., x_N) = \sum_{i=1}^N \rho_i x_i
 
     where the weights are normalised, \sum_{i=1}^N \rho_i = 1.
@@ -236,12 +267,12 @@ class ConvexCombination(nn.Module):
     ----------
     flow_replica
         A list of replica normalising flow models.
-    
+
     Methods
     -------
     forward(x_input, log_density):
         Returns the convex combination of probability densities output by the flow
-        replica, along with the convex combination of logarithms of probability 
+        replica, along with the convex combination of logarithms of probability
         densities.
 
     Notes

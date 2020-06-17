@@ -79,6 +79,14 @@ def bootstrap_sample(data, bootstrap_sample_size):
     return np.stack(sample, axis=-2)
 
 
+def prod(iterable):
+    """product of elements in an iterable."""
+    res = 1
+    for i in iterable:
+        res *= i
+    return res
+
+
 def spher_to_eucl(coords):
     """Converts a set (N-1) angles to a set of N-component euclidean unit vectors.
 
