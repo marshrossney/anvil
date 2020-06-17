@@ -72,6 +72,11 @@ def real_nvp_sphere(n_lattice, affine_layer_spec, n_affine=1):
             affine_layer_spec,
             n_couple=n_affine,
         ),
+        CoupleComponents(
+            [layers.AffineLayer, layers.AffineLayer],
+            n_lattice,
+            affine_layer_spec,
+        ),
         layers.InverseProjectionLayer2D(),
     )
 
