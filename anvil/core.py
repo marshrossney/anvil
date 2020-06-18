@@ -147,7 +147,8 @@ class NeuralNetwork(nn.Module):
 
     def forward(self, x: torch.tensor):
         """Forward pass of the network."""
-        return self.network(self._standardise(x).view(-1, self.size_in)).view(
+        # Clone passive partition so we don't mess up the backprop!
+        return self.network(self._standardise(x.clone()).view(-1, self.size_in)).view(
             -1, *self.shape_out
         )
 
