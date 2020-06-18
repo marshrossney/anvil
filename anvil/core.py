@@ -35,15 +35,22 @@ class Sequential(nn.Sequential):
 
 class RBSequential(nn.Sequential):
     """Execute a sequence of coupling layers which couple red/black lattice sites."""
+    # NOTE: makes sense to clone and make passive partition contiguous since we always
+    # need to view/reshape for NN, and we don't want to mess up backprop with in-place
+    # operations on x_b 
 
     def forward(self, x, log_density):
         x_a, x_b = x.chunk(2, dim=2)
-        
-        x_b = x_b.contiguous()
 
         counter = 0
         for module in self:
-            x_b, x_a, log_density = module(x_a, x_b, log_density)
+            phi_a, log_density = module(
+                x_a,
+                log_density,
+                x_passive=x_b.clone(memory_format=torch.contiguous_format),
+            )
+            x_a = x_b
+            x_b = phi_a
             counter += 1
 
         if counter % 2 == 0:
@@ -147,8 +154,7 @@ class NeuralNetwork(nn.Module):
 
     def forward(self, x: torch.tensor):
         """Forward pass of the network."""
-        # Clone passive partition so we don't mess up the backprop!
-        return self.network(self._standardise(x.clone()).view(-1, self.size_in)).view(
+        return self.network(self._standardise(x).view(-1, self.size_in)).view(
             -1, *self.shape_out
         )
 
@@ -169,7 +175,7 @@ class RBLayerNd(nn.Module):
             ]
         )
 
-    def forward(self, x_in, x_passive, log_density):
+    def forward(self, x_in, log_density, x_passive):
         x_components = x_in.split(1, dim=1)
 
         phi_out = []
@@ -178,7 +184,7 @@ class RBLayerNd(nn.Module):
             phi_out.append(phi_i)
 
         phi_out = torch.cat(phi_out, dim=1)
-        return phi_out, x_passive, log_density
+        return phi_out, log_density
 
 
 class RedBlackSequence(nn.Module):

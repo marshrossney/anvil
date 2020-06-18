@@ -124,7 +124,7 @@ class AffineLayer(nn.Module):
             batch_normalise=batch_normalise,
         )
 
-    def forward(self, x_in, x_passive, log_density):
+    def forward(self, x_in, log_density, x_passive):
         """Forward pass of affine transformation."""
         s_out = self.s_network(x_passive)
         t_out = self.t_network(x_passive)
@@ -132,7 +132,7 @@ class AffineLayer(nn.Module):
         phi_out = (x_in - t_out) * torch.exp(-s_out)
         log_density += s_out.sum(dim=2).sum(dim=1, keepdim=True)
 
-        return phi_out, x_passive, log_density
+        return phi_out, log_density
 
 
 class NCPLayer(nn.Module):
@@ -227,7 +227,7 @@ class NCPLayer(nn.Module):
         )
         self.phase_shift = nn.Parameter(torch.rand(1))
 
-    def forward(self, x_in, x_passive, log_density):
+    def forward(self, x_in, log_density, x_passive):
         """Forward pass of the project-affine-inverse transformation."""
         alpha = torch.exp(self.s_network(x_passive))
         beta = self.t_network(x_passive)
@@ -248,7 +248,7 @@ class NCPLayer(nn.Module):
             .sum(dim=1, keepdim=True)
         )
 
-        return phi_out, x_passive, log_density
+        return phi_out, log_density
 
 
 class LinearSplineLayer(nn.Module):
@@ -338,7 +338,7 @@ class LinearSplineLayer(nn.Module):
 
         self.scale = pi  # TODO: improve
 
-    def forward(self, x_in, x_passive, log_density):
+    def forward(self, x_in, log_density, x_passive):
         """Forward pass of the linear spline layer."""
         # Mix component and lattice dimensions so that searchsorted can work
         x_in = x_in.view(-1, self.size_in) / self.scale
@@ -370,7 +370,7 @@ class LinearSplineLayer(nn.Module):
 
         phi_out = phi_out.view(-1, *self.shape_in) * self.scale
 
-        return phi_out, x_passive, log_density
+        return phi_out, log_density
 
 
 class QuadraticSplineLayer(nn.Module):
@@ -464,7 +464,7 @@ class QuadraticSplineLayer(nn.Module):
             0.5 * w_norm * (torch.exp(h_raw[..., :-1]) + torch.exp(h_raw[..., 1:]))
         ).sum(dim=2, keepdim=True)
 
-    def forward(self, x_in, x_passive, log_density):
+    def forward(self, x_in, log_density, x_passive):
         """Forward pass of the quadratic spline layer."""
         x_in = x_in.view(-1, self.size_in) / self.scale
 
@@ -519,7 +519,7 @@ class QuadraticSplineLayer(nn.Module):
 
         phi_out = phi_out.view(-1, *self.shape_in) * self.scale
 
-        return phi_out, x_passive, log_density
+        return phi_out, log_density
 
 
 class CircularSplineLayer(nn.Module):
@@ -611,7 +611,7 @@ class CircularSplineLayer(nn.Module):
 
         self.eps = 1e-6
 
-    def forward(self, x_in, x_passive, log_density):
+    def forward(self, x_in, log_density, x_passive):
         """Forward pass of the rational quadratic spline layer."""
         x_in = x_in.view(-1, self.size_in)
 
@@ -675,7 +675,7 @@ class CircularSplineLayer(nn.Module):
         ) / (s_k + (d_kp1 + d_k - 2 * s_k) * alpha * (1 - alpha)).pow(2)
         log_density -= torch.log(grad).sum(dim=1)
 
-        return phi_out, x_passive, log_density
+        return phi_out, log_density
 
 
 # ----------------------------------------------------------------------------------------- #
