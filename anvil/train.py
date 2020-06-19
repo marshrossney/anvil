@@ -33,7 +33,7 @@ def shifted_kl(
         shifted K-L for set of sample states.
 
     """
-    return torch.mean(model_log_density - target_log_density, dim=0)
+    return torch.mean(model_log_density - target_log_density)
 
 
 def train(

@@ -159,7 +159,7 @@ class NeuralNetwork(nn.Module):
         )
 
 
-class RBLayerNd(nn.Module):
+class NonBijectiveRBLayer(nn.Module):
     def __init__(self, coupling_layers: list, n_lattice: int, layer_spec: dict):
         super().__init__()
         n_components = len(coupling_layers)
@@ -177,85 +177,101 @@ class RBLayerNd(nn.Module):
 
     def forward(self, x_in, log_density, x_passive):
         x_components = x_in.split(1, dim=1)
+        x_passive=x_passive.clone(memory_format=torch.contiguous_format)
 
         phi_out = []
-        for i, (x, layer) in enumerate(zip(x_components, self.layers)):
-            phi_i, _, log_density = layer(x, x_passive, log_density)
+        for x, layer in zip(x_components, self.layers):
+            phi_i, log_density = layer(x, log_density, x_passive)
             phi_out.append(phi_i)
 
         phi_out = torch.cat(phi_out, dim=1)
         return phi_out, log_density
 
 
-class RedBlackSequence(nn.Module):
-    """Generic class for sequences of coupling transformations which couple different
-    lattice sites.
-
-    Lattice sites are partitioned into two groups: 'red' and 'black', as per a
-    checkerboard pattern. A coupling layer transforms either the red or the black sites,
-    using the passive partition as input for a (set of) neural networks which
-    parameterise the transformation.
-
-    Parameters
-    ----------
-    coupling_layers: list
-        A list of nn.Module's from anvil.layers which implement coupling transformations
-        for the n different components.
-    n_lattice: int
-        Number of sites on the lattice.
-    layer_spec: dict
-        A dictionary containing keyword arguments for `coupling_layer`.
-    n_couple: int
-        Number of pairs of red/black layers, which is the number of times each data
-        point is transformed.
-
-    Attributes
-    ----------
-    red_layers: nn.ModuleList
-        A list of `n_pairs` instances of `coupling_layer`, which will transform the red
-        partition whilst taking the black partition as parameters.
-    black_layers: nn.ModuleList
-        As above for the black partition.
-
-    Methods
-    -------
-    forward(x_in, log_density)
-        Takes a tensor of input data with dimensions (n_batch, n_components, n_lattice),
-        and a tensor of the current logarithm of the probability density function, with
-        dimensions (n_batch, 1). Returns a tensor of transformed data and an updated
-        log density.
-    """
-
-    def __init__(
-        self, coupling_layers: list, n_lattice: int, layer_spec: dict, *, n_couple=1
-    ):
+class HShapedLayer(nn.Module):
+    def __init__(self, coupling_layer_1, coupling_layer_2, n_lattice, layer_spec):
         super().__init__()
-        self.n_components = len(coupling_layers)
-        self.lattice_half = n_lattice // 2
-        self.size_in = self.lattice_half * self.n_components
+        n_components = 2
+        lattice_half = n_lattice // 2
 
-        self.red_layers = nn.ModuleList(
-            [
-                RedBlackLayer(coupling_layers, n_lattice, layer_spec)
-                for _ in range(n_couple)
-            ]
-        )
-        self.black_layers = nn.ModuleList(
-            [
-                RedBlackLayer(coupling_layers, n_lattice, layer_spec)
-                for _ in range(n_couple)
-            ]
-        )
+        rb_data_shape = (1, lattice_half)
+        ud_data_shape = (1, n_lattice)
+
+        self.rb_layers_1 = RBSequential(
+                coupling_layer_1(rb_data_shape, rb_data_shape, **layer_spec),
+                coupling_layer_1(rb_data_shape, rb_data_shape, **layer_spec)
+                )
+        self.rb_layers_2 = RBSequential(
+                coupling_layer_2(rb_data_shape, rb_data_shape, **layer_spec),
+                coupling_layer_2(rb_data_shape, rb_data_shape, **layer_spec)
+                )
+        
+        self.ud_layer_1 = coupling_layer_1(ud_data_shape, ud_data_shape, **layer_spec)
+        self.ud_layer_2 = coupling_layer_2(ud_data_shape, ud_data_shape, **layer_spec)
+
 
     def forward(self, x_in, log_density):
-        x_r, x_b = x_in.split(self.lattice_half, dim=2)
+        x_1, x_2 = x_in.split(1, dim=1)
 
-        for red_layer, black_layer in zip(self.red_layers, self.black_layers):
-            x_r, log_density = red_layer(x_r, x_b, log_density)
-            x_b, log_density = black_layer(x_b, x_r, log_density)
+        x_1_rb, log_density = self.rb_layers_1(x_1, log_density)
+        x_2_rb, log_density = self.rb_layers_2(x_2, log_density)
 
-        phi_out = torch.cat((x_r, x_b), dim=2)
+        phi_1, log_density = self.ud_layer_1(x_1_rb, log_density, x_2_rb.clone())
+        phi_2, log_density = self.ud_layer_2(x_2_rb, log_density, phi_1.clone())
+
+        return torch.cat((phi_1, phi_2), dim=1), log_density
+
+class AutoregressiveLayer(nn.Module):
+    # NOTE: only n_components = 2 is supported currently
+    def __init__(
+        self,
+        coupling_layers,
+        n_lattice: int,
+        layer_spec: dict,
+        *,
+        i_start=0,
+        n_redblack=2,
+    ):
+        super().__init__()
+        self.i_rb = i_start
+        self.i_condit = (i_start + 1) % 2
+
+        lattice_half = n_lattice // 2
+
+        rb_layer = coupling_layers[self.i_rb]
+        condit_layer = coupling_layers[self.i_condit]
+
+        self.rb_layers = RBSequential(
+            *[
+                rb_layer((1, lattice_half), (1, lattice_half), **layer_spec)
+                for _ in range(n_redblack)
+            ]
+        )
+
+        self.condit_layer = condit_layer((1, n_lattice), (1, n_lattice), **layer_spec)
+
+        if i_start == 0:
+            self.join_func = lambda phi_rb, phi_condit: torch.cat(
+                (phi_rb, phi_condit), dim=1
+            )
+        else:
+            self.join_func = lambda phi_rb, phi_condit: torch.cat(
+                (phi_condit, phi_rb), dim=1
+            )
+
+    def forward(self, x_in, log_density):
+        x_components = x_in.split(1, dim=1)
+        x_rb = x_components[self.i_rb]
+        x_condit = x_components[self.i_condit]
+
+        phi_rb, log_density = self.rb_layers(x_rb, log_density)
+        phi_condit, log_density = self.condit_layer(x_condit, log_density, phi_rb.clone())
+
+        phi_out = self.join_func(phi_rb, phi_condit)
+
         return phi_out, log_density
+
+        
 
 
 class ConvexCombination(nn.Module):

@@ -4,8 +4,21 @@ models.py
 Module containing reportengine actions which return callable objects that execute
 normalising flows constructed from multiple layers via function composition.
 """
-from anvil.core import Sequential, RBSequential, RBLayerNd
+from anvil.core import (
+    Sequential,
+    RBSequential,
+    NonBijectiveRBLayer,
+    HShapedLayer,
+    AutoregressiveLayer,
+)
 import anvil.layers as layers
+
+
+##################################### layer parameters ########################################
+
+
+def rb_shape(n_lattice, n_components):
+    return (n_components, n_lattice // 2)
 
 
 def affine_layer_spec(
@@ -43,9 +56,12 @@ def spline_layer_spec(
     )
 
 
+################################## bijective RB coupling #####################################
+
+
 def real_nvp(n_lattice, affine_layer_spec, n_affine=2):
     """Action that returns a callable object that performs a sequence of `n_affine`
-    affine coupling transformations on both partitions of the input vector."""
+    affine coupling transformations on both partitions of the input state."""
     data_shape = (1, n_lattice // 2)
     return RBSequential(
         *[
@@ -56,7 +72,7 @@ def real_nvp(n_lattice, affine_layer_spec, n_affine=2):
 
 
 def real_nvp_circle(real_nvp):
-    """Action that returns a callable object that projects an input vector from 
+    """Action that returns a callable object that projects an input state from 
     (0, 2\pi)->R1, performs a sequence of affine transformations, then does the
     inverse projection back to (0, 2\pi)"""
     return Sequential(
@@ -65,9 +81,12 @@ def real_nvp_circle(real_nvp):
 
 
 def real_nvp_sphere(n_lattice, affine_layer_spec, n_affine=2):
-    """Action that returns a callable object that projects an input vector from 
+    """Action that returns a callable object that projects an input state from 
     S2 - {0} -> R2, performs a sequence of affine transformations, then does the
-    inverse projection back to S2 - {0}"""
+    inverse projection back to S2 - {0}
+    
+    Direct generalisation of real_nvp_circle where both components are transformed
+    by the same affine transformation using red-black coupling."""
     data_shape = (2, n_lattice // 2)
     return Sequential(
         layers.ProjectionLayer2D(),
@@ -81,11 +100,7 @@ def real_nvp_sphere(n_lattice, affine_layer_spec, n_affine=2):
     )
 
 
-def ncp_circle(
-    n_lattice,
-    ncp_layer_spec,
-    n_couple=1,  # unlikely that function composition is beneficial
-):
+def ncp_circle(n_lattice, ncp_layer_spec, n_couple=2):
     """Action that returns a callable object that performs a sequence of transformations
     from (0, 2\pi) -> (0, 2\pi), each of which are the composition of a stereographic
     projection transformation, an affine transformation, and the inverse projection."""
@@ -98,52 +113,116 @@ def ncp_circle(
     )
 
 
-def linear_spline(
-    n_lattice, spline_layer_spec,
-):
+def linear_spline(n_lattice, spline_layer_spec, n_couple=2):
     """Action that returns a callable object that performs a pair of linear spline
-    transformations, one on each half of the input vector."""
+    transformations, one on each half of the input state."""
     data_shape = (1, n_lattice // 2)
     return RBSequential(
-        layers.LinearSplineLayer(data_shape, data_shape, **spline_layer_spec),
-        layers.LinearSplineLayer(data_shape, data_shape, **spline_layer_spec),
+        *[
+            layers.LinearSplineLayer(data_shape, data_shape, **spline_layer_spec)
+            for _ in range(n_couple)
+        ]
     )
 
 
-def quadratic_spline(
-    n_lattice, spline_layer_spec,
-):
+def quadratic_spline(n_lattice, spline_layer_spec, n_couple=2):
     """Action that returns a callable object that performs a pair of quadratic spline
-    transformations, one on each half of the input vector."""
+    transformations, one on each half of the input state."""
     data_shape = (1, n_lattice // 2)
     return RBSequential(
-        layers.QuadraticSplineLayer(data_shape, data_shape, **spline_layer_spec),
-        layers.QuadraticSplineLayer(data_shape, data_shape, **spline_layer_spec),
+        *[
+            layers.QuadraticSplineLayer(data_shape, data_shape, **spline_layer_spec)
+            for _ in range(n_couple)
+        ]
     )
 
 
-def circular_spline(n_lattice, spline_layer_spec):
-    """Action that returns a callable object that performs a pair of quadratic spline
-    transformations, one on each half of the input vector."""
+def circular_spline(n_lattice, spline_layer_spec, n_couple=2):
+    """Action that returns a callable object that performs a pair of rational quadratic
+    spline transformations, one on each half of the input state."""
     data_shape = (1, n_lattice // 2)
     return RBSequential(
-        layers.CircularSplineLayer(data_shape, data_shape, **spline_layer_spec),
-        layers.CircularSplineLayer(data_shape, data_shape, **spline_layer_spec),
+        *[
+            layers.CircularSplineLayer(data_shape, data_shape, **spline_layer_spec)
+            for _ in range(n_couple)
+        ]
     )
 
 
-def spherical_spline(n_lattice, spline_layer_spec):
+################################# non-bijective RB coupling #####################################
+
+
+def non_bijective_spherical_spline(n_lattice, spline_layer_spec, n_layers=2):
     return RBSequential(
-        RBLayerNd(
-            [layers.QuadraticSplineLayer, layers.CircularSplineLayer],
-            n_lattice,
-            spline_layer_spec,
-        ),
-        RBLayerNd(
-            [layers.QuadraticSplineLayer, layers.CircularSplineLayer],
-            n_lattice,
-            spline_layer_spec,
-        ),
+        *[
+            NonBijectiveRBLayer(
+                [layers.QuadraticSplineLayer, layers.CircularSplineLayer],
+                n_lattice,
+                spline_layer_spec,
+            )
+            for _ in range(n_layers)
+        ]
+    )
+
+
+###################################### Autoregression ###########################################
+
+
+def autoregressive_project_sphere(n_lattice, affine_layer_spec, n_layers=2):
+    return Sequential(
+        layers.ProjectionLayer2D(),
+        *[
+            AutoregressiveLayer(
+                [layers.AffineLayer, layers.AffineLayer],
+                n_lattice,
+                affine_layer_spec,
+                i_start=i % 2,
+            )
+            for i in range(n_layers)
+        ],
+        layers.InverseProjectionLayer2D(),
+    )
+
+def autoregressive_spherical_spline(n_lattice, spline_layer_spec, n_layers=2):
+    return Sequential(
+        *[
+            AutoregressiveLayer(
+                [layers.QuadraticSplineLayer, layers.CircularSplineLayer],
+                n_lattice,
+                spline_layer_spec,
+                i_start=i % 2,
+            )
+            for i in range(n_layers)
+        ],
+    )
+
+##################################### H-shaped coupling #########################################
+
+
+def h_shaped_project_sphere(n_lattice, affine_layer_spec, n_layers=2):
+    return Sequential(
+        layers.ProjectionLayer2D(),
+        *[
+            HShapedLayer(
+                layers.AffineLayer, layers.AffineLayer, n_lattice, affine_layer_spec
+            )
+            for _ in range(n_layers)
+        ],
+        layers.InverseProjectionLayer2D(),
+    )
+
+
+def h_shaped_spherical_spline(n_lattice, spline_layer_spec, n_layers=2):
+    return Sequential(
+        *[
+            HShapedLayer(
+                layers.QuadraticSplineLayer,
+                layers.CircularSplineLayer,
+                n_lattice,
+                spline_layer_spec,
+            )
+            for _ in range(n_layers)
+        ]
     )
 
 
@@ -155,5 +234,9 @@ MODEL_OPTIONS = {
     "linear_spline": linear_spline,
     "quadratic_spline": quadratic_spline,
     "circular_spline": circular_spline,
-    "spherical_spline": spherical_spline,
+    "nb_spherical_spline": non_bijective_spherical_spline,
+    "h_project_sphere": h_shaped_project_sphere,
+    "h_spherical_spline": h_shaped_spherical_spline,
+    "auto_project_sphere": autoregressive_project_sphere,
+    "auto_spherical_spline": autoregressive_spherical_spline,
 }
