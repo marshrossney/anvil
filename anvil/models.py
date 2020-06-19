@@ -59,14 +59,14 @@ def spline_layer_spec(
 ################################## bijective RB coupling #####################################
 
 
-def real_nvp(n_lattice, affine_layer_spec, n_affine=2):
-    """Action that returns a callable object that performs a sequence of `n_affine`
+def real_nvp(n_lattice, affine_layer_spec, n_layers=2):
+    """Action that returns a callable object that performs a sequence of `n_layers`
     affine coupling transformations on both partitions of the input state."""
     data_shape = (1, n_lattice // 2)
     return RBSequential(
         *[
             layers.AffineLayer(data_shape, data_shape, **affine_layer_spec)
-            for _ in range(n_affine)
+            for _ in range(n_layers)
         ]
     )
 
@@ -80,7 +80,7 @@ def real_nvp_circle(real_nvp):
     )
 
 
-def real_nvp_sphere(n_lattice, affine_layer_spec, n_affine=2):
+def real_nvp_sphere(n_lattice, affine_layer_spec, n_layers=2):
     """Action that returns a callable object that projects an input state from 
     S2 - {0} -> R2, performs a sequence of affine transformations, then does the
     inverse projection back to S2 - {0}
@@ -93,14 +93,14 @@ def real_nvp_sphere(n_lattice, affine_layer_spec, n_affine=2):
         RBSequential(
             *[
                 layers.AffineLayer(data_shape, data_shape, **affine_layer_spec)
-                for _ in range(n_affine)
+                for _ in range(n_layers)
             ]
         ),
         layers.InverseProjectionLayer2D(),
     )
 
 
-def ncp_circle(n_lattice, ncp_layer_spec, n_couple=2):
+def ncp_circle(n_lattice, ncp_layer_spec, n_layers=2):
     """Action that returns a callable object that performs a sequence of transformations
     from (0, 2\pi) -> (0, 2\pi), each of which are the composition of a stereographic
     projection transformation, an affine transformation, and the inverse projection."""
@@ -108,43 +108,43 @@ def ncp_circle(n_lattice, ncp_layer_spec, n_couple=2):
     return RBSequential(
         *[
             layers.NCPLayer(data_shape, data_shape, **ncp_layer_spec)
-            for _ in range(n_couple)
+            for _ in range(n_layers)
         ]
     )
 
 
-def linear_spline(n_lattice, spline_layer_spec, n_couple=2):
+def linear_spline(n_lattice, spline_layer_spec, n_layers=2):
     """Action that returns a callable object that performs a pair of linear spline
     transformations, one on each half of the input state."""
     data_shape = (1, n_lattice // 2)
     return RBSequential(
         *[
             layers.LinearSplineLayer(data_shape, data_shape, **spline_layer_spec)
-            for _ in range(n_couple)
+            for _ in range(n_layers)
         ]
     )
 
 
-def quadratic_spline(n_lattice, spline_layer_spec, n_couple=2):
+def quadratic_spline(n_lattice, spline_layer_spec, n_layers=2):
     """Action that returns a callable object that performs a pair of quadratic spline
     transformations, one on each half of the input state."""
     data_shape = (1, n_lattice // 2)
     return RBSequential(
         *[
             layers.QuadraticSplineLayer(data_shape, data_shape, **spline_layer_spec)
-            for _ in range(n_couple)
+            for _ in range(n_layers)
         ]
     )
 
 
-def circular_spline(n_lattice, spline_layer_spec, n_couple=2):
+def circular_spline(n_lattice, spline_layer_spec, n_layers=2):
     """Action that returns a callable object that performs a pair of rational quadratic
     spline transformations, one on each half of the input state."""
     data_shape = (1, n_lattice // 2)
     return RBSequential(
         *[
             layers.CircularSplineLayer(data_shape, data_shape, **spline_layer_spec)
-            for _ in range(n_couple)
+            for _ in range(n_layers)
         ]
     )
 
