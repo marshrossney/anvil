@@ -148,6 +148,7 @@ def quadratic_spline(
 
 def rational_quadratic_spline(
     size_half,
+    interval=4,
     n_segments=4,
     hidden_shape=[24,],
     activation="leaky_relu",
@@ -158,6 +159,7 @@ def rational_quadratic_spline(
     return coupling_pair(
         layers.RationalQuadraticSplineLayer,
         size_half,
+        interval=interval,
         n_segments=n_segments,
         hidden_shape=hidden_shape,
         activation=activation,
