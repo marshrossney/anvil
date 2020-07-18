@@ -532,6 +532,7 @@ class QuadraticSplineLayer(CouplingLayer):
 
         return phi_out, log_density
 
+
 class RationalQuadraticSplineLayer(CouplingLayer):
     r"""A coupling transformation from a finite interval to itself based on a piecewise
     rational quadratic spline function.
@@ -583,6 +584,7 @@ class RationalQuadraticSplineLayer(CouplingLayer):
     forward(x_input, log_density)
         see docstring for anvil.layers
     """
+
     def __init__(
         self,
         size_half: int,
@@ -617,13 +619,13 @@ class RationalQuadraticSplineLayer(CouplingLayer):
         x_a = x_input[:, self._a_ind]
         x_b = x_input[:, self._b_ind]
         x_a_stand = (x_a - x_a.mean()) / x_a.std()  # reduce numerical instability
-        
+
         phi_b = torch.zeros_like(x_b)
         grad = torch.ones_like(x_b).unsqueeze(dim=-1)
 
         # Apply mask for linear tails
         inside_mask = abs(x_b) <= self.B
-        x_b_in = x_b[inside_mask] 
+        x_b_in = x_b[inside_mask]
         phi_b[~inside_mask] = x_b[~inside_mask]
 
         h_raw, w_raw, d_raw = (
@@ -633,28 +635,29 @@ class RationalQuadraticSplineLayer(CouplingLayer):
         )
         h_norm = self.norm_func(h_raw[inside_mask]) * 2 * self.B
         w_norm = self.norm_func(w_raw[inside_mask]) * 2 * self.B
-        d_norm = nn.functional.pad(self.softplus(d_raw[inside_mask]), (1, 1), "constant", 1)
+        d_norm = nn.functional.pad(
+            self.softplus(d_raw[inside_mask]), (1, 1), "constant", 1
+        )
 
-        x_knot_points = torch.cat(
-            (
-                torch.zeros(w_norm.shape[0], 1) - self.eps,
-                torch.cumsum(w_norm, dim=1),
-            ),
-            dim=1,
-        ) - self.B
-        phi_knot_points = torch.cat(
-            (
-                torch.zeros(h_norm.shape[0], 1),
-                torch.cumsum(h_norm, dim=1),
-            ),
-            dim=1,
-        ) - self.B
+        x_knot_points = (
+            torch.cat(
+                (
+                    torch.zeros(w_norm.shape[0], 1) - self.eps,
+                    torch.cumsum(w_norm, dim=1),
+                ),
+                dim=1,
+            )
+            - self.B
+        )
+        phi_knot_points = (
+            torch.cat(
+                (torch.zeros(h_norm.shape[0], 1), torch.cumsum(h_norm, dim=1),), dim=1,
+            )
+            - self.B
+        )
 
         k_ind = (
-            searchsorted(
-                x_knot_points.contiguous(),
-                x_b_in.contiguous().view(-1, 1),
-            )
+            searchsorted(x_knot_points.contiguous(), x_b_in.contiguous().view(-1, 1),)
             - 1
         ).clamp(0, self.n_segments - 1)
 
@@ -688,6 +691,7 @@ class RationalQuadraticSplineLayer(CouplingLayer):
         log_density -= torch.log(grad).sum(dim=1)
 
         return phi_out, log_density
+
 
 class CircularSplineLayer(CouplingLayer):
     r"""A coupling transformation from S^1 -> S^1 based on a piecewise rational quadratic
@@ -1018,9 +1022,10 @@ class GlobalAffineLayer(nn.Module):
 
     def __init__(self, scale, shift):
         super().__init__()
-        self.scale = scale
+        self.scale = scale  # must be positive
         self.shift = shift
 
     def forward(self, x_input, log_density):
         """Forward pass of the global affine transformation."""
+        log_density -= torch.log(self.scale) * x_input.shape[1]
         return self.scale * x_input + self.shift, log_density
