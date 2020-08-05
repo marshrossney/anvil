@@ -38,6 +38,7 @@ from math import pi
 
 from anvil.core import NeuralNetwork
 
+import numpy as np
 
 class CouplingLayer(nn.Module):
     """
@@ -135,6 +136,7 @@ class AffineLayer(CouplingLayer):
 
     def __init__(
         self,
+        i: int,
         size_half: int,
         *,
         hidden_shape: list,
@@ -144,6 +146,7 @@ class AffineLayer(CouplingLayer):
         even_sites: bool,
     ):
         super().__init__(size_half, even_sites)
+        self.i = i
 
         self.s_network = NeuralNetwork(
             size_in=size_half,
@@ -181,6 +184,9 @@ class AffineLayer(CouplingLayer):
 
         phi_out = self._join_func([x_a, phi_b], dim=1)
         log_density += s_out.sum(dim=1, keepdim=True)
+
+        if phi_out.requires_grad is False:
+            np.savetxt(f"layer_{self.i}.txt", phi_out)
 
         return phi_out, log_density
 
@@ -574,6 +580,7 @@ class RationalQuadraticSplineLayer(CouplingLayer):
 
     def __init__(
         self,
+        i,
         size_half: int,
         interval: int,
         n_segments: int,
@@ -582,6 +589,9 @@ class RationalQuadraticSplineLayer(CouplingLayer):
         even_sites: bool,
     ):
         super().__init__(size_half, even_sites)
+        self.i = i
+        self.j = int(even_sites)
+
         self.size_half = size_half
         self.n_segments = n_segments
 
@@ -625,6 +635,7 @@ class RationalQuadraticSplineLayer(CouplingLayer):
         h_norm = self.norm_func(h_raw[inside_mask]) * 2 * self.B
         w_norm = self.norm_func(w_raw[inside_mask]) * 2 * self.B
         d_pad = nn.functional.pad(self.softplus(d_raw)[inside_mask], (1, 1), "constant", 1)
+        
 
         x_knot_points = (
             torch.cat(
@@ -676,6 +687,14 @@ class RationalQuadraticSplineLayer(CouplingLayer):
 
         phi_out = self._join_func([x_a, phi_b], dim=1)
         log_density -= torch.log(grad).sum(dim=1)
+        
+        if phi_out.requires_grad is False:
+            np.savetxt(f"layer_{self.i}.txt", phi_out)
+            np.savetxt(f"x_kp_{self.i}.txt", x_knot_points)
+            np.savetxt(f"phi_kp_{self.i}.txt", phi_knot_points)
+            np.savetxt("h.txt", h_norm[0:4, :])
+            np.savetxt("w.txt", w_norm[0:4, :])
+            np.savetxt("d.txt", d_pad[0:4, :])
 
         return phi_out, log_density
 

@@ -11,6 +11,8 @@ import torch
 
 from tqdm import tqdm
 
+import numpy as np
+
 from reportengine import collect
 
 log = logging.getLogger(__name__)
@@ -63,9 +65,11 @@ def sample_batch(
     """
     with torch.no_grad():  # don't track gradients
         z, base_log_density = base_dist(batch_size + 1)
+        np.savetxt("model_in.txt", z.flatten())
         phi, model_log_density = loaded_model(
             z, base_log_density
         )  # map using trained loaded_model to phi
+        np.savetxt("model_out.txt", phi.flatten())
 
         if current_state is not None:
             phi[0] = current_state
@@ -296,6 +300,8 @@ def sample(
 
     log.info(f"Accepted: {accepted}, Rejected: {rejected}, Fraction: {fraction:.2g}")
     log.debug(f"Returning a decorrelated chain of length: {actual_length}")
+
+    np.savetxt("ensemble_out.txt", decorrelated_chain)
     return decorrelated_chain
 
 _sample_training_output = collect("sample", ("training_context",))

@@ -17,10 +17,10 @@ def target_support(target_dist):
     return target_dist.support
 
 
-def coupling_pair(coupling_layer, size_half, **layer_spec):
+def coupling_pair(coupling_layer, i, size_half, **layer_spec):
     """Helper function which returns a callable object that performs a coupling
     transformation on both even and odd lattice sites."""
-    coupling_transformation = partial(coupling_layer, size_half, **layer_spec)
+    coupling_transformation = partial(coupling_layer, i, size_half, **layer_spec)
     return Sequential(
         coupling_transformation(even_sites=True),
         coupling_transformation(even_sites=False),
@@ -40,13 +40,14 @@ def real_nvp(
     affine_pairs = [
         coupling_pair(
             layers.AffineLayer,
+            i+1,
             size_half,
             hidden_shape=hidden_shape,
             activation=activation,
             s_final_activation=s_final_activation,
             symmetric=symmetric,
         )
-        for _ in range(n_affine)
+        for i in range(n_affine)
     ]
     return Sequential(*affine_pairs)
 
@@ -154,13 +155,14 @@ def rational_quadratic_spline(
         *[
             coupling_pair(
                 layers.RationalQuadraticSplineLayer,
+                i+1,
                 size_half,
                 interval=interval,
                 n_segments=n_segments,
                 hidden_shape=hidden_shape,
                 activation=activation,
             )
-            for _ in range(n_pairs)
+            for i in range(n_pairs)
         ]
     )
 
