@@ -173,7 +173,10 @@ class AffineLayer(CouplingLayer):
         r"""Forward pass of affine transformation."""
         x_a = x_input[:, self._a_ind]
         x_b = x_input[:, self._b_ind]
-        x_a_stand = (x_a - x_a.mean()) / x_a.std()  # reduce numerical instability
+        if self.symmetric:
+            x_a_stand = x_a / x_a.std()
+        else:
+            x_a_stand = x_a#(x_a - x_a.mean()) / x_a.std()  # reduce numerical instability
         s_out = self.s_network(x_a_stand)
         t_out = self.t_network(x_a_stand)
 
@@ -1021,15 +1024,22 @@ class GlobalAffineLayer(nn.Module):
         see docstring for anvil.layers
     """
 
-    def __init__(self, scale, shift):
+    def __init__(self, scale=1, shift=0):
         super().__init__()
-        self.scale = scale  # must be positive
+        if scale < 0:
+            self.scale = nn.Parameter(torch.tensor([1.0]))
+        else:
+            self.scale = scale
+        self.softplus = nn.Softplus()
+        
         self.shift = shift
 
     def forward(self, x_input, log_density):
         """Forward pass of the global affine transformation."""
-        log_density -= torch.log(self.scale) * x_input.shape[1]
-        return self.scale * x_input + self.shift, log_density
+        gamma = self.softplus(self.scale)
+        #print(gamma)
+        log_density -= torch.log(gamma) * x_input.shape[1]
+        return gamma * x_input + self.shift, log_density
 
 
 class BatchNormLayer(nn.Module):
@@ -1057,7 +1067,7 @@ class BatchNormLayer(nn.Module):
     def __init__(self, scale=1):
         super().__init__()
         if scale < 0:
-            self.scale = nn.Parameter(torch.tensor([1.0]))
+            self.scale = nn.Parameter(torch.tensor([0.5]))
         else:
             self.scale = scale
         self.eps = 0.00001

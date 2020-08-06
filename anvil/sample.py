@@ -302,6 +302,9 @@ def sample(
     log.debug(f"Returning a decorrelated chain of length: {actual_length}")
 
     np.savetxt("ensemble_out.txt", decorrelated_chain)
+    with open("acceptance.txt", "a") as f:
+        f.write(f"{fraction}\n")
+
     return decorrelated_chain
 
 _sample_training_output = collect("sample", ("training_context",))

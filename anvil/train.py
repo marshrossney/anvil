@@ -81,6 +81,8 @@ def train(
 
         if (i % 50) == 0:
             pbar.set_description(f"loss: {current_loss.item()}")
+            with open("loss.txt", "a") as f:
+                f.write(f"{float(current_loss)}\n")
     torch.save(
         {
             "epoch": train_range[-1],
@@ -90,6 +92,7 @@ def train(
         },
         f"{outpath}/checkpoint_{train_range[-1]}.pt",
     )
+
     return loaded_model
 
 def adam(
