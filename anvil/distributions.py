@@ -200,6 +200,7 @@ class VonMisesDist:
     the log density calculation. There's no good reason for this other
     than it's nice to see the calculation written out.
     """
+
     support = (0, 2 * pi)
 
     support = (0, 2 * pi)
@@ -443,36 +444,41 @@ class PhiFourAction:
 
     """
 
-    def __init__(self, m_sq, lam, geometry, use_arxiv_version=False):
-        super(PhiFourAction, self).__init__()
+    def __init__(self, geometry, parameterisation, couplings):
+        super().__init__()
+        
         self.shift = geometry.get_shift()
-        self.lam = lam
-        self.m_sq = m_sq
-        self.lattice_size = geometry.length ** 2
-        if use_arxiv_version:
-            self.version_factor = 2
-        else:
-            self.version_factor = 1
 
-    def log_density(self, phi_state: torch.Tensor) -> torch.Tensor:
-        """Perform forward pass, returning -action for stack of states. Note
-        here the minus sign since we want to return the log density of the
-        corresponding unnormalised distribution
+        self.__dict__.update(couplings)
 
-        see class Notes for details on definition of action.
-        """
+        if parameterisation == "standard":
+            self.nneigh_coeff = -1
+            self.quadratic_coeff = (4 + self.m_sq) / 2
+            self.quartic_coeff = self.g / 24
+
+        elif parameterisation == "albergo2019":
+            self.nneigh_coeff = -2
+            self.quadratic_coeff = 4 + self.m_sq
+            self.quartic_coeff = self.lam
+
+        elif parameterisation == "nicoli2020":
+            self.nneigh_coeff = -2 * self.kappa
+            self.quadratic_coeff = 1 - 2 * self.lam
+            self.quartic_coeff = self.lam
+
+        elif parameterisation == "bosetti2015":
+            self.nneigh_coeff = -self.beta
+            self.quadratic_coeff = 1 - 2 * self.lam
+            self.quartic_coeff = self.lam
+            
+    def log_density(self, phi):
         action = (
-            self.version_factor * (2 + 0.5 * self.m_sq) * phi_state ** 2  # phi^2 terms
-            + self.lam * phi_state ** 4  # phi^4 term
-            - self.version_factor
-            * torch.sum(
-                phi_state[:, self.shift] * phi_state.view(-1, 1, self.lattice_size),
-                dim=1,
-            )  # derivative
-        ).sum(
-            dim=1, keepdim=True  # sum across sites
-        )
+            self.nneigh_coeff * (phi[:, self.shift] * phi.unsqueeze(dim=1)).sum(dim=1)
+            + self.quadratic_coeff * phi.pow(2)
+            + self.quartic_coeff * phi.pow(4)
+        ).sum(dim=1, keepdim=True)
         return -action
+
 
 
 class O2Action:
@@ -599,11 +605,9 @@ def von_mises_mixture(lattice_size, n_dists=2, concentration=4.0):
     return MixtureDist(dists)
 
 
-def phi_four_action(m_sq, lam, geometry, use_arxiv_version):
+def phi_four_action(geometry, couplings, parameterisation="standard"):
     """returns instance of PhiFourAction"""
-    return PhiFourAction(
-        m_sq, lam, geometry=geometry, use_arxiv_version=use_arxiv_version
-    )
+    return PhiFourAction(geometry, parameterisation, couplings)
 
 
 def o2_action(beta, geometry):

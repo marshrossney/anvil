@@ -107,27 +107,12 @@ class ConfigParser(Config):
         """Radius for semicircle distribution."""
         return rad
 
-    def parse_m_sq(self, m: (float, int)):
-        """Bare mass squared in scalar theory."""
-        return m
+    def parse_couplings(self, couplings: dict):
+        """Couplings for field theory."""
+        return couplings  # TODO: obviously need to be more fool-proof about this
 
-    def parse_lam(self, lam: (float, int)):
-        """Coefficient of quartic interaction in phi^4 theory."""
-        return lam
-    
-    def parse_beta(self, beta: (float, int)):
-        """Inverse temperature."""
-        return beta
-
-    def parse_use_arxiv_version(self, do_use: bool):
-        """If false, use the conventional phi^4 action. If true,
-        there is an additional factor of 2 for the kinetic part
-        of the phi^4 action."""
-        return do_use
-
-    def parse_beta(self, beta: (float, int)):
-        """Inverse temperature."""
-        return beta
+    def parse_parameterisation(self, param: str):
+        return param
 
     @explicit_node
     def produce_model_action(self, model: str):
