@@ -9,6 +9,10 @@ from tqdm import tqdm
 import torch
 import torch.optim as optim
 
+from anvil.utils import get_num_parameters
+
+import logging
+log = logging.getLogger(__name__)
 
 def shifted_kl(
     model_log_density: torch.Tensor, target_log_density: torch.Tensor
@@ -50,6 +54,10 @@ def train(
     scheduler,
 ):
     """training loop of model"""
+    
+    num_parameters = get_num_parameters(loaded_model)
+    log.info(f"Model has {num_parameters} trainable parameters.")
+    
     # let's use tqdm to see progress
     pbar = tqdm(range(*train_range), desc=f"loss: {current_loss}")
     for i in pbar:
