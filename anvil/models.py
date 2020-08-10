@@ -17,10 +17,10 @@ def target_support(target_dist):
     return target_dist.support
 
 
-def coupling_pair(coupling_layer, size_half, **layer_spec):
+def coupling_pair(coupling_layer, i, size_half, **layer_spec):
     """Helper function which returns a callable object that performs a coupling
     transformation on both even and odd lattice sites."""
-    coupling_transformation = partial(coupling_layer, size_half, **layer_spec)
+    coupling_transformation = partial(coupling_layer, i, size_half, **layer_spec)
     return Sequential(
         coupling_transformation(even_sites=True),
         coupling_transformation(even_sites=False),
@@ -37,18 +37,44 @@ def real_nvp(
 ):
     """Action that returns a callable object that performs a sequence of `n_affine`
     affine coupling transformations on both partitions of the input vector."""
-    affine_pairs = [
+    """affine_pairs = [
         coupling_pair(
             layers.AffineLayer,
+            i+1,
             size_half,
             hidden_shape=hidden_shape,
             activation=activation,
             s_final_activation=s_final_activation,
             symmetric=symmetric,
         )
-        for _ in range(n_affine)
+        for i in range(n_affine)
     ]
-    return Sequential(*affine_pairs)
+    return Sequential(*affine_pairs)"""
+    plop = [
+            coupling_pair(
+                layers.AffineLayer,
+                1,
+                size_half,
+                hidden_shape=hidden_shape,
+                activation=activation,
+                s_final_activation=s_final_activation,
+                symmetric=symmetric,
+            ),
+        ]
+    for i in range(1, n_affine):
+        plop.append(layers.BatchNormLayer(scale=-1))
+        plop.append(
+            coupling_pair(
+                layers.AffineLayer,
+                i + 1,
+                size_half,
+                hidden_shape=hidden_shape,
+                activation=activation,
+                s_final_activation=s_final_activation,
+                symmetric=symmetric,
+            )
+        )
+    return Sequential(*plop)
 
 
 def real_nvp_circle(size_half, real_nvp):
@@ -151,25 +177,24 @@ def rational_quadratic_spline(
     """Action that returns a callable object that performs a pair of circular spline
     transformations, one on each half of the input vector."""
     return Sequential(
+        #layers.GlobalAffineLayer(-1, 0),
         *[
             coupling_pair(
                 layers.RationalQuadraticSplineLayer,
+                i + 1,
                 size_half,
                 interval=interval,
                 n_segments=n_segments,
                 hidden_shape=hidden_shape,
                 activation=activation,
             )
-            for _ in range(n_pairs)
+            for i in range(n_pairs)
         ]
     )
 
 
 def circular_spline(
-    size_half,
-    n_segments=4,
-    hidden_shape=[24,],
-    activation="leaky_relu",
+    size_half, n_segments=4, hidden_shape=[24,], activation="leaky_relu",
 ):
     """Action that returns a callable object that performs a pair of circular spline
     transformations, one on each half of the input vector."""

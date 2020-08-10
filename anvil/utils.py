@@ -3,6 +3,7 @@ import multiprocessing as mp
 from itertools import islice
 from functools import wraps
 from math import ceil
+import torch
 
 USE_MULTIPROCESSING = True
 
@@ -129,3 +130,13 @@ class unit_norm:
                 )
 
             setter(instance, array_in)
+
+def get_num_parameters(model):
+    """Return the number of trainable parameters in a model.
+
+    Taken from github.com/bayesiains/nflows
+    """
+    num = 0
+    for parameter in model.parameters():
+        num += torch.numel(parameter)
+    return num
