@@ -34,36 +34,13 @@ def real_nvp(
     activation="tanh",
     s_final_activation=None,
     symmetric=True,
+    bnorm=False,
+    bn_scale=1.0,
 ):
     """Action that returns a callable object that performs a sequence of `n_affine`
     affine coupling transformations on both partitions of the input vector."""
-    """affine_pairs = [
-        coupling_pair(
-            layers.AffineLayer,
-            i+1,
-            size_half,
-            hidden_shape=hidden_shape,
-            activation=activation,
-            s_final_activation=s_final_activation,
-            symmetric=symmetric,
-        )
-        for i in range(n_affine)
-    ]
-    return Sequential(*affine_pairs)"""
-    plop = [
-            coupling_pair(
-                layers.AffineLayer,
-                1,
-                size_half,
-                hidden_shape=hidden_shape,
-                activation=activation,
-                s_final_activation=s_final_activation,
-                symmetric=symmetric,
-            ),
-        ]
-    for i in range(1, n_affine):
-        plop.append(layers.BatchNormLayer(scale=-1))
-        plop.append(
+    if bnorm == False:
+        affine_pairs = [
             coupling_pair(
                 layers.AffineLayer,
                 i + 1,
@@ -73,8 +50,26 @@ def real_nvp(
                 s_final_activation=s_final_activation,
                 symmetric=symmetric,
             )
-        )
-    return Sequential(*plop)
+            for i in range(n_affine)
+        ]
+        return Sequential(*affine_pairs)
+    else:
+        output = []
+        for i in range(n_affine):
+            output.append(
+                coupling_pair(
+                    layers.AffineLayer,
+                    i + 1,
+                    size_half,
+                    hidden_shape=hidden_shape,
+                    activation=activation,
+                    s_final_activation=s_final_activation,
+                    symmetric=symmetric,
+                )
+            )
+            if i < n_affine - 1:
+                output.append(layers.BatchNormLayer(bn_scale, learnable=True))
+        return Sequential(*output)
 
 
 def real_nvp_circle(size_half, real_nvp):
@@ -177,7 +172,7 @@ def rational_quadratic_spline(
     """Action that returns a callable object that performs a pair of circular spline
     transformations, one on each half of the input vector."""
     return Sequential(
-        #layers.GlobalAffineLayer(-1, 0),
+        # layers.GlobalAffineLayer(-1, 0),
         *[
             coupling_pair(
                 layers.RationalQuadraticSplineLayer,
@@ -207,6 +202,25 @@ def circular_spline(
     )
 
 
+def spline_affine(real_nvp, rational_quadratic_spline):
+    return Sequential(rational_quadratic_spline, real_nvp)
+
+
+def affine_spline(real_nvp, rational_quadratic_spline, sigma):
+    return Sequential(
+        real_nvp, layers.BatchNormLayer(scale=0.5 * sigma), rational_quadratic_spline
+    )
+
+
+def spline_sandwich(real_nvp, rational_quadratic_spline, sigma):
+    return Sequential(
+        real_nvp,
+        layers.BatchNormLayer(scale=0.5 * sigma),
+        rational_quadratic_spline,
+        real_nvp,
+    )
+
+
 MODEL_OPTIONS = {
     "real_nvp": real_nvp,
     "real_nvp_circle": real_nvp_circle,
@@ -216,4 +230,7 @@ MODEL_OPTIONS = {
     "rational_quadratic_spline": rational_quadratic_spline,
     "circular_spline": circular_spline,
     "ncp_circle": ncp_circle,
+    "spline_affine": spline_affine,
+    "affine_spline": affine_spline,
+    "spline_sandwich": spline_sandwich,
 }

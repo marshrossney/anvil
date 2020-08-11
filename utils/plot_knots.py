@@ -4,12 +4,10 @@ from matplotlib.patches import Circle
 import torch
 import torch.nn as nn
 
-n_layers = 2
-
-B = 1.5
-eps = 1e-6
+n_layers = 1
 
 fig, axes = plt.subplots(ncols=n_layers, sharex=True, sharey=True)
+axes = [axes,]
 
 for i in range(1, n_layers + 1):
     ax = axes[i-1]
@@ -32,7 +30,7 @@ for i in range(1, n_layers + 1):
     ax.set_xticklabels([])
     ax.set_xticks([])
 
-    ax.set_title(f"layer {i}")
+    #ax.set_title(f"layer {i}")
     ax.set_xlabel(f"$y_{i-1}$")
     ax.set_ylabel(f"$y_{i}$")
 
@@ -40,4 +38,6 @@ for i in range(1, n_layers + 1):
     
 fig.tight_layout()
 
-plt.show()
+fig.savefig("knots.png")
+
+#plt.show()

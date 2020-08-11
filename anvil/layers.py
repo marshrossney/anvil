@@ -40,6 +40,7 @@ from anvil.core import NeuralNetwork
 
 import numpy as np
 
+
 class CouplingLayer(nn.Module):
     """
     Base class for coupling layers.
@@ -176,7 +177,9 @@ class AffineLayer(CouplingLayer):
         if self.symmetric:
             x_a_stand = x_a / x_a.std()
         else:
-            x_a_stand = x_a#(x_a - x_a.mean()) / x_a.std()  # reduce numerical instability
+            x_a_stand = (
+                x_a  # (x_a - x_a.mean()) / x_a.std()  # reduce numerical instability
+            )
         s_out = self.s_network(x_a_stand)
         t_out = self.t_network(x_a_stand)
 
@@ -630,15 +633,13 @@ class RationalQuadraticSplineLayer(CouplingLayer):
         h_raw, w_raw, d_raw = (
             self.network(x_a_stand)
             .view(-1, self.size_half, 3 * self.n_segments - 1)
-            .split(
-                (self.n_segments, self.n_segments, self.n_segments - 1),
-                dim=2,
-            )
+            .split((self.n_segments, self.n_segments, self.n_segments - 1), dim=2,)
         )
         h_norm = self.norm_func(h_raw[inside_mask]) * 2 * self.B
         w_norm = self.norm_func(w_raw[inside_mask]) * 2 * self.B
-        d_pad = nn.functional.pad(self.softplus(d_raw)[inside_mask], (1, 1), "constant", 1)
-        
+        d_pad = nn.functional.pad(
+            self.softplus(d_raw)[inside_mask], (1, 1), "constant", 1
+        )
 
         x_knot_points = (
             torch.cat(
@@ -690,7 +691,7 @@ class RationalQuadraticSplineLayer(CouplingLayer):
 
         phi_out = self._join_func([x_a, phi_b], dim=1)
         log_density -= torch.log(grad).sum(dim=1)
-        
+
         if phi_out.requires_grad is False:
             np.savetxt(f"layer_{self.i}.txt", phi_out)
             np.savetxt(f"x_kp_{self.i}.txt", x_knot_points)
@@ -1031,13 +1032,13 @@ class GlobalAffineLayer(nn.Module):
         else:
             self.scale = scale
         self.softplus = nn.Softplus()
-        
+
         self.shift = shift
 
     def forward(self, x_input, log_density):
         """Forward pass of the global affine transformation."""
         gamma = self.softplus(self.scale)
-        #print(gamma)
+        # print(gamma)
         log_density -= torch.log(gamma) * x_input.shape[1]
         return gamma * x_input + self.shift, log_density
 
@@ -1064,17 +1065,22 @@ class BatchNormLayer(nn.Module):
         see docstring for anvil.layers 
     """
 
-    def __init__(self, scale=1):
+    def __init__(self, scale=1, learnable=False):
         super().__init__()
-        if scale < 0:
-            self.scale = nn.Parameter(torch.tensor([0.5]))
+        self.soft = nn.Softplus()
+        Fm1 = lambda g: torch.log(torch.exp(g) - 1)
+
+        if learnable:
+            self.scale = nn.Parameter(Fm1(torch.tensor([scale])))
         else:
-            self.scale = scale
+            self.scale = Fm1(scale)
+        
         self.eps = 0.00001
 
     def forward(self, x_input, log_density):
         """Forward pass of the batch normalisation transformation."""
-        mult = self.scale / torch.sqrt(torch.var(x_input) + self.eps)
+        gamma = self.soft(self.scale)
+        mult = gamma / torch.sqrt(torch.var(x_input) + self.eps)
         phi_out = (x_input - x_input.mean()) * mult
         log_density -= x_input.shape[1] * torch.log(mult)
         return phi_out, log_density

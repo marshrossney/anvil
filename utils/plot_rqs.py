@@ -6,7 +6,7 @@ import torch.nn as nn
 
 i = 1
 
-B = 1.5
+B = 1.2
 eps = 1e-6
 
 N_h_norm = torch.from_numpy(np.loadtxt("h.txt"))
@@ -15,7 +15,11 @@ N_d_pad = torch.from_numpy(np.loadtxt("d.txt"))
 
 N, n_segments = N_h_norm.shape
 
-fig, axes = plt.subplots(2, 2, sharex=True, sharey=True)
+#fig, axes = plt.subplots(2, 2, sharex=True, sharey=True)
+fig, axes = plt.subplots()
+N = 1
+axes = np.array([axes,])
+
 
 for n, ax in zip(range(N), axes.flatten()):
 
@@ -76,5 +80,6 @@ for n, ax in zip(range(N), axes.flatten()):
     ax.set_ylabel("$y_{i}$")
 
 fig.legend()
-fig.suptitle("Example RQS transformations")
+#fig.suptitle("Example RQS transformations")
+fig.savefig("example_rqs.png")
 plt.show()

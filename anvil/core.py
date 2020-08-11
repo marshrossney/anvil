@@ -77,8 +77,8 @@ class NeuralNetwork(nn.Module):
         if symmetric:
             self.bias = False
             # TODO: check this in config
-            assert activation in SYMMETRIC_ACTIVATIONS
-            assert final_activation in SYMMETRIC_ACTIVATIONS
+            #assert activation in SYMMETRIC_ACTIVATIONS
+            #assert final_activation in SYMMETRIC_ACTIVATIONS
         else:
             self.bias = True
 
