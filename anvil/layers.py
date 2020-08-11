@@ -1073,7 +1073,7 @@ class BatchNormLayer(nn.Module):
         if learnable:
             self.scale = nn.Parameter(Fm1(torch.tensor([scale])))
         else:
-            self.scale = Fm1(scale)
+            self.scale = Fm1(torch.tensor([scale]))
         
         self.eps = 0.00001
 
