@@ -1,0 +1,18 @@
+training_output: train
+
+cp_id: -1
+target_length: 10000
+
+thermalisation: 1000
+sample_interval: 1
+n_boot: 1000
+
+meta:
+  author: Author
+  title: Training Report
+  keywords: [example]
+
+template: report.md
+
+actions_:
+  - report(main=True)

@@ -4,23 +4,26 @@ lattice_dimension: 2
 
 # Target
 target: phi_four
-m_sq: -4
-lam: 1.0
-use_arxiv_version: false
+parameterisation: albergo2019
+couplings:
+    m_sq: -4
+    lam: 6.975
 
 # Model
 base: normal
-sigma: 0.9
+sigma: 0.4
 model: real_nvp
 model_spec:
-    n_affine: 6
     hidden_shape: [72]
     activation: tanh
-    s_final_activation: null
+    
+    n_affine: 6
     symmetric: true
+    bnorm: false
+    s_final_activation: null
 
 # Training
-n_batch: 1000
+n_batch: 2000
 epochs: 10000
 save_interval: 1000
 
@@ -31,4 +34,5 @@ learning_rate: 0.001
 # Scheduler
 verbose_scheduler: true
 lr_reduction_factor: 0.5
+min_learning_rate: 0.0000001
 

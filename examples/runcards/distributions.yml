@@ -1,12 +1,7 @@
 training_output: train
 
 cp_id: -1
-target_length0000
-
-meta:
-    author: Author
-    title: Field component distributions
-    keywords: [example]
+target_length: 10000
 
 actions_:
     - plot_field_components

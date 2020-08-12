@@ -211,15 +211,46 @@ def affine_spline(real_nvp, rational_quadratic_spline, sigma):
         real_nvp, layers.BatchNormLayer(scale=0.5 * sigma), rational_quadratic_spline
     )
 
-
-def spline_sandwich(real_nvp, rational_quadratic_spline, sigma):
+def spline_sandwich(
+    rational_quadratic_spline,
+    sigma,
+    size_half,
+    n_affine,
+    hidden_shape=[24,],
+    activation="tanh",
+    s_final_activation=None,
+    symmetric=True,
+    ):
+    affine_1 = [
+            coupling_pair(
+                layers.AffineLayer,
+                i + 1,
+                size_half,
+                hidden_shape=hidden_shape,
+                activation=activation,
+                s_final_activation=s_final_activation,
+                symmetric=symmetric,
+            )
+            for i in range(n_affine)
+        ]
+    affine_2 = [
+            coupling_pair(
+                layers.AffineLayer,
+                i + 1 + n_affine,
+                size_half,
+                hidden_shape=hidden_shape,
+                activation=activation,
+                s_final_activation=s_final_activation,
+                symmetric=symmetric,
+            )
+            for i in range(n_affine)
+        ]
     return Sequential(
-        real_nvp,
+        *affine_1,
         layers.BatchNormLayer(scale=0.5 * sigma),
         rational_quadratic_spline,
-        real_nvp,
+        *affine_2,
     )
-
 
 MODEL_OPTIONS = {
     "real_nvp": real_nvp,
