@@ -93,6 +93,52 @@ class CouplingLayer(nn.Module):
             )
 
 
+class AdditiveLayer(CouplingLayer):
+    def __init__(
+        self,
+        i: int,
+        size_half: int,
+        *,
+        hidden_shape: list,
+        activation: str,
+        symmetric: bool,
+        even_sites: bool,
+    ):
+        super().__init__(size_half, even_sites)
+        self.i = i
+
+        self.t_network = NeuralNetwork(
+            size_in=size_half,
+            size_out=size_half,
+            hidden_shape=hidden_shape,
+            activation=activation,
+            final_activation=None,
+            symmetric=symmetric,
+        )
+        self.symmetric = symmetric
+
+    def forward(self, x_input, log_density) -> torch.Tensor:
+        r"""Forward pass of affine transformation."""
+        x_a = x_input[:, self._a_ind]
+        x_b = x_input[:, self._b_ind]
+        if self.symmetric:
+            x_a_stand = x_a / x_a.std()
+        else:
+            x_a_stand = (
+                x_a  # (x_a - x_a.mean()) / x_a.std()  # reduce numerical instability
+            )
+        t_out = self.t_network(x_a_stand)
+
+        phi_b = x_b + t_out
+
+        phi_out = self._join_func([x_a, phi_b], dim=1)
+
+        if False:#phi_out.requires_grad is False:
+            np.savetxt(f"layer_{self.i}.txt", phi_out)
+
+        return phi_out, log_density
+
+
 class AffineLayer(CouplingLayer):
     r"""Extension to `nn.Module` for an affine transformation layer as described
     in https://arxiv.org/abs/1904.12072.
@@ -191,7 +237,7 @@ class AffineLayer(CouplingLayer):
         phi_out = self._join_func([x_a, phi_b], dim=1)
         log_density += s_out.sum(dim=1, keepdim=True)
 
-        if phi_out.requires_grad is False:
+        if False:#phi_out.requires_grad is False:
             np.savetxt(f"layer_{self.i}.txt", phi_out)
 
         return phi_out, log_density
@@ -692,7 +738,7 @@ class RationalQuadraticSplineLayer(CouplingLayer):
         phi_out = self._join_func([x_a, phi_b], dim=1)
         log_density -= torch.log(grad).sum(dim=1)
 
-        if phi_out.requires_grad is False:
+        if False:#phi_out.requires_grad is False:
             np.savetxt(f"layer_{self.i}.txt", phi_out)
             np.savetxt(f"x_kp_{self.i}.txt", x_knot_points)
             np.savetxt(f"phi_kp_{self.i}.txt", phi_knot_points)
@@ -1006,6 +1052,18 @@ class InverseProjectionLayer2D(nn.Module):
         return phi_out.view(-1, self.size_out), log_density
 
 
+class GlobalAdditiveLayer(nn.Module):
+    def __init__(self, shift_init=0.0):
+        super().__init__()
+
+        self.shift = nn.Parameter(torch.tensor([shift_init]))
+        self.softplus = nn.Softplus()
+
+    def forward(self, x_input, log_density):
+        shift = x_input.mean(dim=1, keepdim=True).sign() * self.softplus(self.shift)
+        return x_input + shift, log_density
+
+
 class GlobalAffineLayer(nn.Module):
     r"""Applies an affine transformation to every data point using a given scale and shift,
     which are *not* learnable. Useful to shift the domain of a learned distribution. This is
@@ -1074,7 +1132,7 @@ class BatchNormLayer(nn.Module):
             self.scale = nn.Parameter(Fm1(torch.tensor([scale])))
         else:
             self.scale = Fm1(torch.tensor([scale]))
-        
+
         self.eps = 0.00001
 
     def forward(self, x_input, log_density):

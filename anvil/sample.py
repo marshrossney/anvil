@@ -65,11 +65,11 @@ def sample_batch(
     """
     with torch.no_grad():  # don't track gradients
         z, base_log_density = base_dist(batch_size + 1)
-        np.savetxt("model_in.txt", z.flatten())
+        #np.savetxt("model_in.txt", z.flatten())
         phi, model_log_density = loaded_model(
             z, base_log_density
         )  # map using trained loaded_model to phi
-        np.savetxt("model_out.txt", phi.flatten())
+        #np.savetxt("model_out.txt", phi.flatten())
 
         if current_state is not None:
             phi[0] = current_state
@@ -301,7 +301,7 @@ def sample(
     log.info(f"Accepted: {accepted}, Rejected: {rejected}, Fraction: {fraction:.2g}")
     log.debug(f"Returning a decorrelated chain of length: {actual_length}")
 
-    np.savetxt("ensemble_out.txt", decorrelated_chain)
+    #np.savetxt("ensemble_out.txt", decorrelated_chain)
     with open("acceptance.txt", "a") as f:
         f.write(f"{fraction}\n")
 
