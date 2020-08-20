@@ -10,7 +10,7 @@ from anvil.core import Sequential
 
 import anvil.layers as layers
 
-final_layer = layers.GlobalAdditiveLayer()
+final_layer = layers.GlobalAdditiveLayer(2.0,learnable=True)
 
 
 def target_support(target_dist):
@@ -27,6 +27,48 @@ def coupling_pair(coupling_layer, i, size_half, **layer_spec):
         coupling_transformation(even_sites=True),
         coupling_transformation(even_sites=False),
     )
+
+
+def nice(
+    size_half,
+    n_affine,
+    hidden_shape=[24,],
+    activation="tanh",
+    symmetric=True,
+    bnorm=False,
+    bn_scale=1.0,
+):
+    """Action that returns a callable object that performs a sequence of `n_affine`
+    affine coupling transformations on both partitions of the input vector."""
+    if bnorm == False:
+        add_pairs = [
+            coupling_pair(
+                layers.AdditiveLayer,
+                i + 1,
+                size_half,
+                hidden_shape=hidden_shape,
+                activation=activation,
+                symmetric=symmetric,
+            )
+            for i in range(n_affine)
+        ]
+        return Sequential(*add_pairs)
+    else:
+        output = []
+        for i in range(n_affine):
+            output.append(
+                coupling_pair(
+                    layers.AdditiveLayer,
+                    i + 1,
+                    size_half,
+                    hidden_shape=hidden_shape,
+                    activation=activation,
+                    symmetric=symmetric,
+                )
+            )
+            if i < n_affine - 1:
+                output.append(layers.BatchNormLayer(bn_scale, learnable=True))
+        return Sequential(*output)
 
 
 def real_nvp(
@@ -97,7 +139,7 @@ def rational_quadratic_spline(
             )
             for i in range(n_pairs)
         ],
-        final_layer
+        final_layer,
     )
 
 
@@ -140,11 +182,12 @@ def spline_sandwich(
         layers.BatchNormLayer(scale=0.5 * sigma),
         rational_quadratic_spline,
         *affine_2,
-        final_layer
+        final_layer,
     )
 
 
 MODEL_OPTIONS = {
+    "nice": nice,
     "real_nvp": real_nvp,
     "rational_quadratic_spline": rational_quadratic_spline,
     "spline_sandwich": spline_sandwich,

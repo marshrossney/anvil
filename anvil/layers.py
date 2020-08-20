@@ -1053,14 +1053,19 @@ class InverseProjectionLayer2D(nn.Module):
 
 
 class GlobalAdditiveLayer(nn.Module):
-    def __init__(self, shift_init=0.0):
+    def __init__(self, shift_init=0.0, learnable=True):
         super().__init__()
 
-        self.shift = nn.Parameter(torch.tensor([shift_init]))
-        self.softplus = nn.Softplus()
+        if learnable:
+            self.shift = nn.Parameter(torch.tensor([shift_init]))
+            self.F = nn.Softplus()
+        else:
+            self.shift = shift_init
+            self.F = lambda x: x
 
     def forward(self, x_input, log_density):
-        shift = x_input.mean(dim=1, keepdim=True).sign() * self.softplus(self.shift)
+        #print(self.shift, self.softplus(self.shift))
+        shift = x_input.mean(dim=1, keepdim=True).sign() * self.F(self.shift)
         return x_input + shift, log_density
 
 
