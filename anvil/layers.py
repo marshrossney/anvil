@@ -1052,6 +1052,23 @@ class InverseProjectionLayer2D(nn.Module):
         return phi_out.view(-1, self.size_out), log_density
 
 
+class GlobalAdditiveLayer(nn.Module):
+    def __init__(self, shift_init=0.0, learnable=True):
+        super().__init__()
+
+        if learnable:
+            self.shift = nn.Parameter(torch.tensor([shift_init]))
+            self.F = nn.Softplus()
+        else:
+            self.shift = shift_init
+            self.F = lambda x: x
+
+    def forward(self, x_input, log_density):
+        #print(self.shift, self.softplus(self.shift))
+        shift = x_input.mean(dim=1, keepdim=True).sign() * self.F(self.shift)
+        return x_input + shift, log_density
+
+
 class GlobalAffineLayer(nn.Module):
     r"""Applies an affine transformation to every data point using a given scale and shift,
     which are *not* learnable. Useful to shift the domain of a learned distribution. This is
