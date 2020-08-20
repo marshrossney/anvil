@@ -71,6 +71,46 @@ def real_nvp(
                 output.append(layers.BatchNormLayer(bn_scale, learnable=True))
         return Sequential(*output)
 
+def nice(
+    size_half,
+    n_additive,
+    hidden_shape=[24,],
+    activation="tanh",
+    symmetric=True,
+    bnorm=False,
+    bn_scale=1.0,
+):
+    """Action that returns a callable object that performs a sequence of `n_affine`
+    affine coupling transformations on both partitions of the input vector."""
+    if bnorm == False:
+        pairs = [
+            coupling_pair(
+                layers.AdditiveLayer,
+                i + 1,
+                size_half,
+                hidden_shape=hidden_shape,
+                activation=activation,
+                symmetric=symmetric,
+            )
+            for i in range(n_additive)
+        ]
+        return Sequential(*pairs)
+    else:
+        output = []
+        for i in range(n_additive):
+            output.append(
+                coupling_pair(
+                    layers.AdditiveLayer,
+                    i + 1,
+                    size_half,
+                    hidden_shape=hidden_shape,
+                    activation=activation,
+                    symmetric=symmetric,
+                )
+            )
+            if i < n_additive - 1:
+                output.append(layers.BatchNormLayer(bn_scale, learnable=True))
+        return Sequential(*output)
 
 def real_nvp_circle(size_half, real_nvp):
     """Action that returns a callable object that projects an input vector from 
@@ -264,4 +304,5 @@ MODEL_OPTIONS = {
     "spline_affine": spline_affine,
     "affine_spline": affine_spline,
     "spline_sandwich": spline_sandwich,
+    "nice": nice,
 }

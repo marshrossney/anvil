@@ -92,6 +92,52 @@ class CouplingLayer(nn.Module):
                 (a[1], a[0]), *args, **kwargs
             )
 
+class AdditiveLayer(CouplingLayer):
+
+    def __init__(
+        self,
+        i: int,
+        size_half: int,
+        *,
+        hidden_shape: list,
+        activation: str,
+        symmetric: bool,
+        even_sites: bool,
+    ):
+        super().__init__(size_half, even_sites)
+        self.i = i
+
+        self.t_network = NeuralNetwork(
+            size_in=size_half,
+            size_out=size_half,
+            hidden_shape=hidden_shape,
+            activation=activation,
+            final_activation=None,
+            symmetric=symmetric,
+        )
+
+        self.symmetric = symmetric
+
+    def forward(self, x_input, log_density) -> torch.Tensor:
+        r"""Forward pass of affine transformation."""
+        x_a = x_input[:, self._a_ind]
+        x_b = x_input[:, self._b_ind]
+        if self.symmetric:
+            x_a_stand = x_a / x_a.std()
+        else:
+            x_a_stand = (
+                x_a  # (x_a - x_a.mean()) / x_a.std()  # reduce numerical instability
+            )
+        t_out = self.t_network(x_a_stand)
+
+        phi_b = x_b - t_out
+
+        phi_out = self._join_func([x_a, phi_b], dim=1)
+
+        if phi_out.requires_grad is False:
+            np.savetxt(f"layer_{self.i}.txt", phi_out)
+
+        return phi_out, log_density
 
 class AffineLayer(CouplingLayer):
     r"""Extension to `nn.Module` for an affine transformation layer as described
