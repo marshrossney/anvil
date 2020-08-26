@@ -216,7 +216,7 @@ class AffineLayer(CouplingLayer):
 
         self.symmetric = symmetric
 
-    def forward(self, x_input, log_density) -> torch.Tensor:
+    def forward(self, x_input, log_density, neg) -> torch.Tensor:
         r"""Forward pass of affine transformation."""
         x_a = x_input[:, self._a_ind]
         x_b = x_input[:, self._b_ind]
@@ -224,13 +224,18 @@ class AffineLayer(CouplingLayer):
             x_a_stand = x_a / x_a.std()
         else:
             x_a_stand = (
-                x_a  # (x_a - x_a.mean()) / x_a.std()  # reduce numerical instability
+                (x_a - x_a.mean()) / x_a.std()  # reduce numerical instability
             )
+
+            x_a_stand[neg] = -x_a_stand[neg]  # still symmetric, but different approach
+
         s_out = self.s_network(x_a_stand)
         t_out = self.t_network(x_a_stand)
 
         if self.symmetric:
             s_out.abs_()
+        else:
+            t_out[neg] = -t_out[neg]
 
         phi_b = (x_b - t_out) * torch.exp(-s_out)
 
@@ -638,6 +643,7 @@ class RationalQuadraticSplineLayer(CouplingLayer):
         n_segments: int,
         hidden_shape: list,
         activation: str,
+        symmetric: bool,
         even_sites: bool,
     ):
         super().__init__(size_half, even_sites)
@@ -662,11 +668,16 @@ class RationalQuadraticSplineLayer(CouplingLayer):
         self.B = interval
         self.eps = 1e-6
 
-    def forward(self, x_input, log_density):
+        self.symmetric = symmetric
+
+    def forward(self, x_input, log_density, neg):
         """Forward pass of the rational quadratic spline layer."""
         x_a = x_input[:, self._a_ind]
         x_b = x_input[:, self._b_ind]
         x_a_stand = (x_a - x_a.mean()) / x_a.std()  # reduce numerical instability
+
+        if self.symmetric:
+            x_a_stand[neg] = -x_a_stand[neg]
 
         phi_b = torch.zeros_like(x_b)
         grad = torch.ones_like(x_b).unsqueeze(dim=-1)
@@ -681,6 +692,12 @@ class RationalQuadraticSplineLayer(CouplingLayer):
             .view(-1, self.size_half, 3 * self.n_segments - 1)
             .split((self.n_segments, self.n_segments, self.n_segments - 1), dim=2,)
         )
+
+        if self.symmetric:
+            h_raw[neg] = torch.flip(h_raw[neg], dims=(2,))
+            w_raw[neg] = torch.flip(w_raw[neg], dims=(2,))
+            d_raw[neg] = torch.flip(d_raw[neg], dims=(2,))
+
         h_norm = self.norm_func(h_raw[inside_mask]) * 2 * self.B
         w_norm = self.norm_func(w_raw[inside_mask]) * 2 * self.B
         d_pad = nn.functional.pad(
@@ -1063,8 +1080,7 @@ class GlobalAdditiveLayer(nn.Module):
             self.shift = shift_init
             self.F = lambda x: x
 
-    def forward(self, x_input, log_density):
-        #print(self.shift, self.softplus(self.shift))
+    def forward(self, x_input, log_density, neg):
         shift = x_input.mean(dim=1, keepdim=True).sign() * self.F(self.shift)
         return x_input + shift, log_density
 
@@ -1140,7 +1156,7 @@ class BatchNormLayer(nn.Module):
         
         self.eps = 0.00001
 
-    def forward(self, x_input, log_density):
+    def forward(self, x_input, log_density, neg):
         """Forward pass of the batch normalisation transformation."""
         gamma = self.soft(self.scale)
         mult = gamma / torch.sqrt(torch.var(x_input) + self.eps)

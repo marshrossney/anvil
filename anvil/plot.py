@@ -121,6 +121,8 @@ def plot_exponential_correlation_length(
     return fig
 
 
+
+
 @figure
 def plot_two_point_correlator(two_point_correlator):
     """Represent the two point function and it's error in x and t as heatmaps
@@ -227,9 +229,7 @@ def plot_two_point_correlator_integrated_autocorr(
     """
     cut = max(10, 2 * np.max(two_point_correlator_optimal_window))
     chain_indices = np.arange(cut) * sample_interval
-    tau = np.max(
-        two_point_correlator_integrated_autocorr[:, two_point_correlator_optimal_window]
-    )
+    tau = two_point_correlator_integrated_autocorr[:, two_point_correlator_optimal_window].mean()
 
     fig, ax = plt.subplots()
     ax.set_title("Integrated autocorrelation of volume-averaged two point function")
@@ -261,12 +261,79 @@ def plot_two_point_correlator_integrated_autocorr(
     ax.legend()
     return fig
 
+@figure
+def plot_magnetisation_series(magnetisation_series, sample_interval):
+    chain_indices = np.arange(magnetisation_series.shape[-1]) * sample_interval
+    fig, ax = plt.subplots()
+    ax.set_title("Magnetisation")
+    ax.set_ylabel("$M(t)$")
+    ax.set_xlabel("$t$")
+    ax.plot(
+        chain_indices, magnetisation_series, linestyle="-", linewidth=0.5,
+    )
+    return fig
+
+@figure
+def plot_magnetisation_autocorr(
+    magnetisation_autocorr, magnetisation_optimal_window, sample_interval
+):
+    cut = max(10, 2 * magnetisation_optimal_window)
+    chain_indices = np.arange(cut) * sample_interval
+
+    fig, ax = plt.subplots()
+    ax.set_title("Autocorrelation of magnetisation")
+    ax.set_ylabel(r"$\Gamma_M(\delta t)$")
+    ax.set_xlabel("$\delta t$")
+
+    ax.plot(
+        chain_indices, magnetisation_autocorr[:cut], linestyle="--", linewidth=0.5,
+    )
+    ax.axvline(
+        magnetisation_optimal_window * sample_interval, linestyle="-", color="r",
+    )
+    ax.set_xlim(left=0)
+    ax.set_ylim(top=1)
+    return fig
+
+
+@figure
+def plot_magnetisation_integrated_autocorr(
+    magnetisation_integrated_autocorr,
+    magnetisation_optimal_window,
+    sample_interval,
+):
+    cut = max(10, 2 * np.max(magnetisation_optimal_window))
+    chain_indices = np.arange(cut) * sample_interval
+    tau = magnetisation_integrated_autocorr[magnetisation_optimal_window]
+
+    fig, ax = plt.subplots()
+    ax.set_title("Integrated autocorrelation of magnetisation")
+    ax.set_ylabel(r"$\sum \Gamma_M(\delta t)$")
+    ax.set_xlabel("$\delta t$")
+
+    ax.plot(
+        chain_indices,
+        magnetisation_integrated_autocorr[:cut],
+        linestyle="--",
+        linewidth=0.5,
+    )
+    ax.axvline(
+        magnetisation_optimal_window * sample_interval, linestyle="-", color="r",
+    )
+    ax.annotate(
+        fr"$\tau_M$ / {sample_interval} = {tau:.2g}",
+        xy=(0.05, 0.05),
+        xycoords="axes fraction",
+    )
+    ax.set_xlim(left=0)
+    ax.set_ylim(bottom=0.5)
+    return fig
 
 @figure
 def plot_topological_charge_series(topological_charge_series, sample_interval):
     """Plot the topological charge of the ensemble as a series, ordered by the positions
     of the configurations in the Markov chain."""
-    chain_indices = np.arange(topological_series.shape[-1]) * sample_interval
+    chain_indices = np.arange(topological_charge_series.shape[-1]) * sample_interval
     fig, ax = plt.subplots()
     ax.set_title("Topological charge")
     ax.set_ylabel("$Q(t)$")

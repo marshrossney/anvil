@@ -65,11 +65,15 @@ def sample_batch(
     """
     with torch.no_grad():  # don't track gradients
         z, base_log_density = base_dist(batch_size + 1)
-        np.savetxt("model_in.txt", z.flatten())
+        np.savetxt("model_in.txt", z)
+        
+        sign = z.sum(dim=1).sign()
+        neg = (sign < 0).nonzero().squeeze()
+        
         phi, model_log_density = loaded_model(
-            z, base_log_density
+            z, base_log_density, neg
         )  # map using trained loaded_model to phi
-        np.savetxt("model_out.txt", phi.flatten())
+        np.savetxt("model_out.txt", phi)
 
         if current_state is not None:
             phi[0] = current_state

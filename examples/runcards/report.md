@@ -15,5 +15,8 @@
 {@plot_two_point_correlator_series@}
 {@plot_two_point_correlator_autocorr@}
 {@plot_two_point_correlator_integrated_autocorr@}
-## Field components
-{@plot_field_components@}
+## Magnetisation
+{@table_magnetisation@}
+{@plot_magnetisation_series@}
+{@plot_magnetisation_autocorr@}
+{@plot_magnetisation_integrated_autocorr@}

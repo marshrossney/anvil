@@ -76,8 +76,11 @@ def train(
         # gen simple states (gradients not tracked)
         x, base_log_density = base_dist(n_batch)
 
+        sign = x.sum(dim=1).sign()
+        neg = (sign < 0).nonzero().squeeze()
+
         # apply inverse map, calc log density of forward map (gradients tracked)
-        phi, model_log_density = loaded_model(x, base_log_density)
+        phi, model_log_density = loaded_model(x, base_log_density, neg)
 
         # compute loss function (gradients tracked)
         target_log_density = target_dist.log_density(phi)

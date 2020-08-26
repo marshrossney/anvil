@@ -124,6 +124,10 @@ class ScalarField:
             )
             - self.first_moment_sq
         )  # NOTE: not bootstrapping first moment. Hopefully inconsequential
+    
+    @property
+    def magnetisation_series(self):
+        return self.coords.sum(axis=0)
 
 
 class ClassicalSpinField(ScalarField):

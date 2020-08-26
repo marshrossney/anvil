@@ -68,8 +68,11 @@ def real_nvp(
                 )
             )
             if i < n_affine - 1:
-                output.append(layers.BatchNormLayer(bn_scale, learnable=True))
+                output.append(layers.BatchNormLayer(bn_scale, learnable=False))
         return Sequential(*output)
+
+def real_nvp_shift(real_nvp, shift_init=0.0):
+    return Sequential(real_nvp, layers.GlobalAdditiveLayer(shift_init=shift_init, learnable=True))
 
 def nice(
     size_half,
@@ -208,6 +211,7 @@ def rational_quadratic_spline(
     n_segments=4,
     hidden_shape=[24,],
     activation="tanh",
+    symmetric=False,
 ):
     """Action that returns a callable object that performs a pair of circular spline
     transformations, one on each half of the input vector."""
@@ -216,16 +220,20 @@ def rational_quadratic_spline(
         *[
             coupling_pair(
                 layers.RationalQuadraticSplineLayer,
-                i + 1,
+                i + 2,
                 size_half,
                 interval=interval,
                 n_segments=n_segments,
                 hidden_shape=hidden_shape,
                 activation=activation,
+                symmetric=symmetric,
             )
             for i in range(n_pairs)
         ]
     )
+
+def rqs_shift(rational_quadratic_spline, shift_init=0.0):
+    return Sequential(rational_quadratic_spline, layers.GlobalAdditiveLayer(shift_init=shift_init, learnable=True))
 
 
 def circular_spline(
@@ -276,7 +284,7 @@ def spline_sandwich(
     affine_2 = [
             coupling_pair(
                 layers.AffineLayer,
-                i + 1 + n_affine,
+                i + 3,
                 size_half,
                 hidden_shape=hidden_shape,
                 activation=activation,
@@ -287,10 +295,14 @@ def spline_sandwich(
         ]
     return Sequential(
         *affine_1,
-        layers.BatchNormLayer(scale=0.5 * sigma),
+        #layers.BatchNormLayer(scale=0.5 * sigma),
+        layers.BatchNormLayer(scale=sigma),
         rational_quadratic_spline,
         *affine_2,
     )
+
+def sandwich_shift(spline_sandwich, shift_init=0.0):
+    return Sequential(spline_sandwich, layers.GlobalAdditiveLayer(shift_init=shift_init, learnable=True))
 
 MODEL_OPTIONS = {
     "real_nvp": real_nvp,
@@ -305,4 +317,7 @@ MODEL_OPTIONS = {
     "affine_spline": affine_spline,
     "spline_sandwich": spline_sandwich,
     "nice": nice,
+    "real_nvp_shift": real_nvp_shift,
+    "rqs_shift": rqs_shift,
+    "sandwich_shift": sandwich_shift,
 }

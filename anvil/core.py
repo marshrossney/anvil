@@ -20,9 +20,9 @@ class Sequential(nn.Sequential):
     value for the current logarithm of the model density, returning an output
     vector and the updated log density."""
 
-    def forward(self, x_input, log_density):
+    def forward(self, x_input, log_density, *args):
         for module in self:
-            x_input, log_density = module(x_input, log_density)
+            x_input, log_density = module(x_input, log_density, *args)
         return x_input, log_density
 
 

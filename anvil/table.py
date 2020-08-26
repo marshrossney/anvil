@@ -26,6 +26,19 @@ def table_two_point_scalars(ising_energy, susceptibility):
     )
     return df
 
+@table
+def table_magnetisation(magnetisation, magnetic_susceptibility):
+    res = [
+        [magnetisation.mean(), magnetisation.std()],
+        [magnetic_susceptibility.mean(), magnetic_susceptibility.std()],
+    ]
+    df = pd.DataFrame(
+        res,
+        columns=["Mean", "Standard deviation"],
+        index=["Magnetisation", "susceptibility"],
+    )
+    return df
+
 
 @table
 def table_correlation_length(
