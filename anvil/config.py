@@ -11,7 +11,7 @@ from reportengine.configparser import ConfigError, element_of, explicit_node
 from anvil.core import normalising_flow
 from anvil.geometry import Geometry2D
 from anvil.checkpoint import TrainingOutput
-from anvil.train import OPTIMIZER_OPTIONS, reduce_lr_on_plateau
+from anvil.train import OPTIMIZER_OPTIONS, SCHEDULER_OPTIONS
 from anvil.models import MODEL_OPTIONS
 from anvil.distributions import BASE_OPTIONS, TARGET_OPTIONS
 from anvil.fields import FIELD_OPTIONS
@@ -184,9 +184,14 @@ class ConfigParser(Config):
             )
 
     @explicit_node
-    def produce_scheduler(self):
+    def produce_loaded_scheduler(self, scheduler):
         """Currently fixed to ReduceLROnPlateau"""
-        return reduce_lr_on_plateau
+        try:
+            return SCHEDULER_OPTIONS[scheduler]
+        except KeyError:
+            raise ConfigError(
+                f"Invalid scheduler {scheduler}", scheduler, SCHEDULER_OPTIONS.keys()
+            )
 
     def parse_target_length(self, targ: int):
         """Target number of decorrelated field configurations to generate."""

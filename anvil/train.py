@@ -53,7 +53,7 @@ def train(
     outpath,
     current_loss,
     loaded_optimizer,
-    scheduler,
+    loaded_scheduler,
 ):
     """training loop of model"""
 
@@ -90,12 +90,22 @@ def train(
         loaded_optimizer.zero_grad()  # zero gradients from prev minibatch
         current_loss.backward()  # accumulate new gradients
         loaded_optimizer.step()
-        scheduler.step(current_loss)
+        
+        #loaded_scheduler.step(current_loss)
+        loaded_scheduler.step()
 
         if (i % 50) == 0:
             pbar.set_description(f"loss: {current_loss.item()}")
             with open("loss.txt", "a") as f:
                 f.write(f"{float(current_loss)}\n")
+
+        if i == int(loaded_scheduler.T_0):
+            loaded_scheduler.base_lrs[0] = 0.001
+            log.info(f"decreasing max lr to {loaded_scheduler.base_lrs[0]}")
+        if i > 0 and i % loaded_scheduler.T_i == 0:
+            n_batch += 500
+            log.info(f"increasing batch size to {n_batch}")
+
     torch.save(
         {
             "epoch": train_range[-1],
@@ -120,6 +130,29 @@ def adam(
     adam_use_amsgrad=False,
 ):
     optimizer = optim.Adam(
+        loaded_model.parameters(),
+        lr=learning_rate,
+        betas=adam_betas,
+        eps=optimizer_stability_factor,
+        weight_decay=optimizer_weight_decay,
+        amsgrad=adam_use_amsgrad,
+    )
+    if loaded_checkpoint is not None:
+        optimizer.load_state_dict(loaded_checkpoint["optimizer_state_dict"])
+    return optimizer
+
+
+def adamw(
+    loaded_model,
+    loaded_checkpoint,
+    *,
+    learning_rate=0.001,
+    adam_betas=(0.9, 0.999),
+    optimizer_stability_factor=1e-08,
+    optimizer_weight_decay=0,
+    adam_use_amsgrad=False,
+):
+    optimizer = optim.AdamW(
         loaded_model.parameters(),
         lr=learning_rate,
         betas=adam_betas,
@@ -208,7 +241,7 @@ def reduce_lr_on_plateau(
     min_learning_rate=0,
     patience=500,  # not the PyTorch default
     cooldown=0,
-    verbose_scheduler=False,
+    verbose_scheduler=True,
     scheduler_threshold=0.0001,
     scheduler_threshold_mode="rel",
     scheduler_stability_factor=1e-08,
@@ -225,10 +258,30 @@ def reduce_lr_on_plateau(
         eps=scheduler_stability_factor,
     )
 
+def cosine_annealing_warm_restarts(
+    loaded_optimizer,
+    *,
+    T_0=1000,
+    T_mult=2,
+    eta_min=0
+):
+    return optim.lr_scheduler.CosineAnnealingWarmRestarts(
+        loaded_optimizer,
+        T_0=T_0,
+        T_mult=T_mult,
+        eta_min=eta_min,
+    )
+
 
 OPTIMIZER_OPTIONS = {
     "adam": adam,
+    "adamw": adamw,
     "adadelta": adadelta,
     "sgd": stochastic_gradient_descent,
     "rms_prop": rms_prop,
+}
+
+SCHEDULER_OPTIONS = {
+    "rlrop": reduce_lr_on_plateau,
+    "warm": cosine_annealing_warm_restarts,
 }

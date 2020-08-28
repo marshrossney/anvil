@@ -243,7 +243,8 @@ class AffineLayer(CouplingLayer):
         log_density += s_out.sum(dim=1, keepdim=True)
 
         if phi_out.requires_grad is False:
-            np.savetxt(f"layer_{self.i}.txt", phi_out)
+            #np.savetxt(f"layer_{self.i}.txt", phi_out)
+            pass
 
         return phi_out, log_density
 
@@ -676,7 +677,7 @@ class RationalQuadraticSplineLayer(CouplingLayer):
         x_b = x_input[:, self._b_ind]
         x_a_stand = (x_a - x_a.mean()) / x_a.std()  # reduce numerical instability
 
-        if self.symmetric:
+        if False:#self.symmetric:
             x_a_stand[neg] = -x_a_stand[neg]
 
         phi_b = torch.zeros_like(x_b)
@@ -693,7 +694,7 @@ class RationalQuadraticSplineLayer(CouplingLayer):
             .split((self.n_segments, self.n_segments, self.n_segments - 1), dim=2,)
         )
 
-        if self.symmetric:
+        if False:#self.symmetric:
             h_raw[neg] = torch.flip(h_raw[neg], dims=(2,))
             w_raw[neg] = torch.flip(w_raw[neg], dims=(2,))
             d_raw[neg] = torch.flip(d_raw[neg], dims=(2,))
@@ -756,12 +757,14 @@ class RationalQuadraticSplineLayer(CouplingLayer):
         log_density -= torch.log(grad).sum(dim=1)
 
         if phi_out.requires_grad is False:
-            np.savetxt(f"layer_{self.i}.txt", phi_out)
+            pass
+            """np.savetxt(f"layer_{self.i}.txt", phi_out)
             np.savetxt(f"x_kp_{self.i}.txt", x_knot_points)
             np.savetxt(f"phi_kp_{self.i}.txt", phi_knot_points)
             np.savetxt("h.txt", h_norm[0:4, :])
             np.savetxt("w.txt", w_norm[0:4, :])
             np.savetxt("d.txt", d_pad[0:4, :])
+            """
 
         return phi_out, log_density
 

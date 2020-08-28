@@ -161,7 +161,7 @@ def _magnetisation(magnetisation_series, n_boot):
     return bootstrap_sample(magnetisation_series, n_boot)
 
 def magnetisation(_magnetisation):
-    return _magnetisation.mean(axis=-1)
+    return np.abs(_magnetisation).mean(axis=-1)
 
 def magnetic_susceptibility(_magnetisation, training_geometry):
     return (
