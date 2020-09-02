@@ -49,11 +49,13 @@ def train(
     *,
     train_range,
     save_interval,
-    n_batch=2000,
+    n_batch,
     outpath,
     current_loss,
     loaded_optimizer,
     loaded_scheduler,
+    increase_batch=False,
+    decrease_lr=False,
 ):
     """training loop of model"""
 
@@ -62,6 +64,7 @@ def train(
 
     # let's use tqdm to see progress
     pbar = tqdm(range(*train_range), desc=f"loss: {current_loss}")
+    j = 1
     for i in pbar:
         if (i % save_interval) == 0:
             torch.save(
@@ -91,21 +94,25 @@ def train(
         current_loss.backward()  # accumulate new gradients
         loaded_optimizer.step()
         
-        #loaded_scheduler.step(current_loss)
-        loaded_scheduler.step()
-
         if (i % 50) == 0:
             pbar.set_description(f"loss: {current_loss.item()}")
             with open("loss.txt", "a") as f:
                 f.write(f"{float(current_loss)}\n")
 
-        if i == int(loaded_scheduler.T_0):
-            loaded_scheduler.base_lrs[0] = 0.001
-            log.info(f"decreasing max lr to {loaded_scheduler.base_lrs[0]}")
-        if i > 0 and i % loaded_scheduler.T_i == 0:
-            n_batch += 500
-            log.info(f"increasing batch size to {n_batch}")
+        if j % loaded_scheduler.T_i == 0:
+            if increase_batch is not False:
+                n_batch += increase_batch
+                log.info(f"increasing batch size to {n_batch}")
+            if decrease_lr is not False:
+                loaded_scheduler.base_lrs[0] *= decrease_lr
+                log.info(f"decreasing max lr to {loaded_scheduler.base_lrs[0]}")
+            j = 0
 
+        #loaded_scheduler.step(current_loss)
+        loaded_scheduler.step()
+
+        j += 1
+        
     torch.save(
         {
             "epoch": train_range[-1],
