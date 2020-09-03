@@ -52,6 +52,7 @@ def optimal_window(integrated, mult=2.0, eps=1e-6):
 #                               Two point observables                                   #
 # ------------------------------------------------------------------------------------- #
 
+
 def two_point_correlator(field_ensemble, n_boot):
     """Bootstrap sample of two point connected correlation functions for the
     field ensemble."""
@@ -153,29 +154,41 @@ def two_point_correlator_optimal_window(two_point_correlator_integrated_autocorr
     return optimal_window(two_point_correlator_integrated_autocorr)
 
 
-
 def magnetisation_series(field_ensemble):
     return field_ensemble.magnetisation_series
+
 
 def _magnetisation(magnetisation_series, n_boot):
     return bootstrap_sample(magnetisation_series, n_boot)
 
-def magnetisation(_magnetisation):
-    return np.abs(_magnetisation).mean(axis=-1)
+
+def magnetisation(_magnetisation, training_geometry):
+    return np.abs(_magnetisation).mean(axis=-1) / training_geometry.length ** 2
+
 
 def magnetic_susceptibility(_magnetisation, training_geometry):
     return (
-            (_magnetisation ** 2).mean(axis=-1) - np.abs(_magnetisation).mean(axis=-1) ** 2
-            ) / training_geometry.length ** 2
+        (_magnetisation ** 2).mean(axis=-1) - _magnetisation.mean(axis=-1) ** 2
+    ) / training_geometry.length ** 2
+
+
+def magnetic_susceptibility_v2(_magnetisation, training_geometry):
+    return (
+        (_magnetisation ** 2).mean(axis=-1) - np.abs(_magnetisation).mean(axis=-1) ** 2
+    ) / training_geometry.length ** 2
+
 
 def magnetisation_autocorr(magnetisation_series):
     return autocorrelation(magnetisation_series)
 
+
 def magnetisation_integrated_autocorr(magnetisation_autocorr):
     return np.cumsum(magnetisation_autocorr, axis=-1) - 0.5
 
+
 def magnetisation_optimal_window(magnetisation_integrated_autocorr):
     return optimal_window(magnetisation_integrated_autocorr)
+
 
 # ------------------------------------------------------------------------------------- #
 #                             Topological observables                                   #

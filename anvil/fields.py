@@ -69,7 +69,7 @@ class ScalarField:
     def first_moment_sq(self):
         """Calculate the first moment (mean) squared of the field. Average over volume as
         well, thanks to translation invariance."""
-        return self.coords.mean(axis=(0, -1)) ** 2  # volume and ensemble dims
+        return (self.coords.mean(axis=-1) ** 2).mean(axis=0)  # ensemble av, square, volume av
 
     def _vol_avg_two_point_correlator(self, shift):
         """Helper function which calculates the volume-averaged two point correlation

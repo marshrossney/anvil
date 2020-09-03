@@ -27,15 +27,16 @@ def table_two_point_scalars(ising_energy, susceptibility):
     return df
 
 @table
-def table_magnetisation(magnetisation, magnetic_susceptibility):
+def table_magnetisation(magnetisation, magnetic_susceptibility, magnetic_susceptibility_v2):
     res = [
         [magnetisation.mean(), magnetisation.std()],
         [magnetic_susceptibility.mean(), magnetic_susceptibility.std()],
+        [magnetic_susceptibility_v2.mean(), magnetic_susceptibility_v2.std()],
     ]
     df = pd.DataFrame(
         res,
         columns=["Mean", "Standard deviation"],
-        index=["Magnetisation", "susceptibility"],
+        index=["magnetisation density", "susceptibility", "susceptibility v2"],
     )
     return df
 

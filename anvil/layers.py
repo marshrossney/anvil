@@ -189,7 +189,7 @@ class AffineLayer(CouplingLayer):
         hidden_shape: list,
         activation: str,
         s_final_activation: str,
-        symmetric: bool,
+        symmetric_networks: bool,
         even_sites: bool,
     ):
         super().__init__(size_half, even_sites)
@@ -201,7 +201,7 @@ class AffineLayer(CouplingLayer):
             hidden_shape=hidden_shape,
             activation=activation,
             final_activation=s_final_activation,
-            symmetric=symmetric,
+            symmetric=symmetric_networks,
         )
         self.t_network = NeuralNetwork(
             size_in=size_half,
@@ -209,18 +209,18 @@ class AffineLayer(CouplingLayer):
             hidden_shape=hidden_shape,
             activation=activation,
             final_activation=None,
-            symmetric=symmetric,
+            symmetric=symmetric_networks,
         )
         # NOTE: Could potentially have non-default inputs for s and t networks
         # by adding dictionary of overrides - e.g. s_options = {}
 
-        self.symmetric = symmetric
+        self.symmetric_networks = symmetric_networks
 
     def forward(self, x_input, log_density, neg) -> torch.Tensor:
         r"""Forward pass of affine transformation."""
         x_a = x_input[:, self._a_ind]
         x_b = x_input[:, self._b_ind]
-        if self.symmetric:
+        if self.symmetric_networks:
             x_a_stand = x_a / x_a.std()
         else:
             x_a_stand = (
@@ -232,7 +232,7 @@ class AffineLayer(CouplingLayer):
         s_out = self.s_network(x_a_stand)
         t_out = self.t_network(x_a_stand)
 
-        if self.symmetric:
+        if self.symmetric_networks:
             s_out.abs_()
         else:
             t_out[neg] = -t_out[neg]
@@ -644,7 +644,6 @@ class RationalQuadraticSplineLayer(CouplingLayer):
         n_segments: int,
         hidden_shape: list,
         activation: str,
-        symmetric: bool,
         even_sites: bool,
     ):
         super().__init__(size_half, even_sites)
@@ -669,15 +668,13 @@ class RationalQuadraticSplineLayer(CouplingLayer):
         self.B = interval
         self.eps = 1e-6
 
-        self.symmetric = symmetric
-
     def forward(self, x_input, log_density, neg):
         """Forward pass of the rational quadratic spline layer."""
         x_a = x_input[:, self._a_ind]
         x_b = x_input[:, self._b_ind]
         x_a_stand = (x_a - x_a.mean()) / x_a.std()  # reduce numerical instability
 
-        if False:#self.symmetric:
+        if True:
             x_a_stand[neg] = -x_a_stand[neg]
 
         phi_b = torch.zeros_like(x_b)
@@ -694,7 +691,7 @@ class RationalQuadraticSplineLayer(CouplingLayer):
             .split((self.n_segments, self.n_segments, self.n_segments - 1), dim=2,)
         )
 
-        if False:#self.symmetric:
+        if True:
             h_raw[neg] = torch.flip(h_raw[neg], dims=(2,))
             w_raw[neg] = torch.flip(w_raw[neg], dims=(2,))
             d_raw[neg] = torch.flip(d_raw[neg], dims=(2,))

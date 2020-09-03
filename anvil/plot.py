@@ -13,11 +13,12 @@ from reportengine.figure import figure, figuregen
 from reportengine import collect
 
 
-def field_component(i, x_base, phi_model, phi_target=None):
+def field_component(i, x_base, phi_model, phi_neg, phi_target=None):
     fig, ax = plt.subplots()
 
     ax.hist(x_base, bins=50, density=True, histtype="step", label="base")
     ax.hist(phi_model, bins=50, density=True, histtype="step", label="model")
+    ax.hist(phi_neg, bins=50, density=True, histtype="step", label="model, m<0")
     if phi_target is not None:
         ax.plot(*phi_target, label="target")
 
@@ -35,11 +36,16 @@ def field_components(loaded_model, base_dist, target_dist, lattice_size):
     # Generate a large sample from the base distribution and pass it through the trained model
     with torch.no_grad():
         x_base, base_log_density = base_dist(sample_size)
-        phi_model, model_log_density = loaded_model(x_base, base_log_density)
+        sign = x_base.sum(dim=1).sign()
+        neg = (sign < 0).nonzero().squeeze()
+        phi_model, model_log_density = loaded_model(x_base, base_log_density, neg)
+
+    phi_neg = phi_model[neg]
 
     # Convert to shape (n_coords, sample_size * lattice_size)
     x_base = x_base.reshape(sample_size * lattice_size, -1).transpose(0, 1)
     phi_model = phi_model.reshape(sample_size * lattice_size, -1).transpose(0, 1)
+    phi_neg = phi_neg.reshape(1, -1)
 
     # Include target density if known
     if hasattr(target_dist, "pdf"):
@@ -48,7 +54,7 @@ def field_components(loaded_model, base_dist, target_dist, lattice_size):
         phi_target = [None for _ in range(x_base.shape[0])]
 
     for i in range(x_base.shape[0]):
-        yield field_component(i, x_base[i], phi_model[i], phi_target[i])
+        yield field_component(i, x_base[i], phi_model[i], phi_neg[i], phi_target[i])
 
 
 _plot_field_components = collect("field_components", ("training_context",))

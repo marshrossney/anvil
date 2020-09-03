@@ -33,7 +33,7 @@ def real_nvp(
     hidden_shape=[24,],
     activation="tanh",
     s_final_activation=None,
-    symmetric=True,
+    symmetric_networks=True,
     bnorm=False,
     bn_scale=1.0,
 ):
@@ -48,7 +48,7 @@ def real_nvp(
                 hidden_shape=hidden_shape,
                 activation=activation,
                 s_final_activation=s_final_activation,
-                symmetric=symmetric,
+                symmetric_networks=symmetric_networks,
             )
             for i in range(n_affine)
         ]
@@ -64,7 +64,7 @@ def real_nvp(
                     hidden_shape=hidden_shape,
                     activation=activation,
                     s_final_activation=s_final_activation,
-                    symmetric=symmetric,
+                    symmetric_networks=symmetric_networks,
                 )
             )
             if i < n_affine - 1:
@@ -211,7 +211,6 @@ def rational_quadratic_spline(
     n_segments=4,
     hidden_shape=[24,],
     activation="tanh",
-    symmetric=False,
 ):
     """Action that returns a callable object that performs a pair of circular spline
     transformations, one on each half of the input vector."""
@@ -226,7 +225,6 @@ def rational_quadratic_spline(
                 n_segments=n_segments,
                 hidden_shape=hidden_shape,
                 activation=activation,
-                symmetric=symmetric,
             )
             for i in range(n_pairs)
         ]
@@ -267,7 +265,7 @@ def spline_sandwich(
     hidden_shape=[24,],
     activation="tanh",
     s_final_activation=None,
-    symmetric=True,
+    symmetric_networks=True,
     ):
     affine_1 = [
             coupling_pair(
@@ -277,7 +275,7 @@ def spline_sandwich(
                 hidden_shape=hidden_shape,
                 activation=activation,
                 s_final_activation=s_final_activation,
-                symmetric=symmetric,
+                symmetric_networks=symmetric_networks,
             )
             for i in range(n_affine)
         ]
@@ -289,7 +287,7 @@ def spline_sandwich(
                 hidden_shape=hidden_shape,
                 activation=activation,
                 s_final_activation=s_final_activation,
-                symmetric=symmetric,
+                symmetric_networks=symmetric_networks,
             )
             for i in range(n_affine)
         ]
