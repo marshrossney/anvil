@@ -11,28 +11,36 @@ couplings:
 
 # Model
 base: normal
-sigma: 0.4
-model: real_nvp
+sigma: 0.5
+model: spline_sandwich
 model_spec:
-    hidden_shape: [72]
+    hidden_shape: [36,36]
     activation: tanh
     
-    n_affine: 6
-    symmetric: true
+    n_affine: 1
+    symmetric_networks: true
     bnorm: false
     s_final_activation: null
 
+    n_pairs: 1
+    symmetric_spline: false
+    n_segments: 8
+    interval: 1.2
+
+
 # Training
-n_batch: 2000
-epochs: 10000
+n_batch: 1000
+epochs: 12000
 save_interval: 1000
 
 # Optimizer
-optimizer: adam
+optimizer: adamw
 learning_rate: 0.001
 
 # Scheduler
-verbose_scheduler: true
-lr_reduction_factor: 0.5
-min_learning_rate: 0.0000001
+scheduler: warm
+T_0: 4000
+T_mult: 2
+increase_batch: [9000, 1000]
+decrease_lr: false
 
