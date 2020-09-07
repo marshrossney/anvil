@@ -242,9 +242,9 @@ class AffineLayer(CouplingLayer):
         phi_out = self._join_func([x_a, phi_b], dim=1)
         log_density += s_out.sum(dim=1, keepdim=True)
 
-        if phi_out.requires_grad is False:
-            #np.savetxt(f"layer_{self.i}.txt", phi_out)
-            pass
+        if False:#phi_out.requires_grad is False:
+            np.savetxt(f"layer_{self.i}.txt", phi_out)
+            
 
         return phi_out, log_density
 
@@ -753,15 +753,15 @@ class RationalQuadraticSplineLayer(CouplingLayer):
         phi_out = self._join_func([x_a, phi_b], dim=1)
         log_density -= torch.log(grad).sum(dim=1)
 
-        if phi_out.requires_grad is False:
-            pass
-            """np.savetxt(f"layer_{self.i}.txt", phi_out)
+        if False:#phi_out.requires_grad is False:
+            
+            np.savetxt(f"layer_{self.i}.txt", phi_out)
             np.savetxt(f"x_kp_{self.i}.txt", x_knot_points)
             np.savetxt(f"phi_kp_{self.i}.txt", phi_knot_points)
             np.savetxt("h.txt", h_norm[0:4, :])
             np.savetxt("w.txt", w_norm[0:4, :])
             np.savetxt("d.txt", d_pad[0:4, :])
-            """
+            
 
         return phi_out, log_density
 

@@ -144,14 +144,14 @@ class ScalarField:
     def boot_two_point_correlator(self, bootstrap_sample_size):
         """Two point connected correlation function for a bootstrap sample of ensembles
         numpy.ndarray, dimensions (*lattice_dimensions, *, bootstrap_sample_size)"""
-        return self.two_point_correlator_pos(bootstrap_sample_size)
-        """return (
+        #return self.two_point_correlator_pos(bootstrap_sample_size)
+        return (
             self._two_point_correlator(
                 bootstrap=True, bootstrap_sample_size=bootstrap_sample_size
             )
             #- self.first_moment_sq
         )  # NOTE: not bootstrapping first moment. Hopefully inconsequential
-        """
+        
         
 
     @property
