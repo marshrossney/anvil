@@ -211,6 +211,7 @@ def rational_quadratic_spline(
     n_segments=4,
     hidden_shape=[24,],
     activation="tanh",
+    symmetric_spline=False,
 ):
     """Action that returns a callable object that performs a pair of circular spline
     transformations, one on each half of the input vector."""
@@ -225,6 +226,7 @@ def rational_quadratic_spline(
                 n_segments=n_segments,
                 hidden_shape=hidden_shape,
                 activation=activation,
+                symmetric_spline=symmetric_spline,
             )
             for i in range(n_pairs)
         ]

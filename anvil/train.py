@@ -62,9 +62,15 @@ def train(
     num_parameters = get_num_parameters(loaded_model)
     log.info(f"Model has {num_parameters} trainable parameters.")
 
+    if increase_batch is not False:
+        ib_epoch, ib_add = increase_batch
+        increase_batch = True
+    if decrease_lr is not False:
+        dlr_epoch, dlr_mult = decrease_lr
+        decrease_lr = True
+
     # let's use tqdm to see progress
     pbar = tqdm(range(*train_range), desc=f"loss: {current_loss}")
-    j = 1
     for i in pbar:
         if (i % save_interval) == 0:
             torch.save(
@@ -94,24 +100,20 @@ def train(
         current_loss.backward()  # accumulate new gradients
         loaded_optimizer.step()
         
+        #loaded_scheduler.step(current_loss)
+        loaded_scheduler.step()
+        
         if (i % 50) == 0:
             pbar.set_description(f"loss: {current_loss.item()}")
             with open("loss.txt", "a") as f:
                 f.write(f"{float(current_loss)}\n")
 
-        if j % loaded_scheduler.T_i == 0:
-            if increase_batch is not False:
-                n_batch += increase_batch
-                log.info(f"increasing batch size to {n_batch}")
-            if decrease_lr is not False:
-                loaded_scheduler.base_lrs[0] *= decrease_lr
-                log.info(f"decreasing max lr to {loaded_scheduler.base_lrs[0]}")
-            j = 0
-
-        #loaded_scheduler.step(current_loss)
-        loaded_scheduler.step()
-
-        j += 1
+        if increase_batch and i == ib_epoch:
+            n_batch += ib_add
+            log.info(f"increasing batch size to {n_batch}")
+        if decrease_lr and i == dlr_epoch:
+            loaded_scheduler.base_lrs[0] *= dlr_mult
+            log.info(f"decreasing max lr to {loaded_scheduler.base_lrs[0]}")
         
     torch.save(
         {
