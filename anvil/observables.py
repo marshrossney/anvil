@@ -168,7 +168,7 @@ def magnetisation(_magnetisation, training_geometry):
 
 def magnetic_susceptibility(_magnetisation, training_geometry):
     return (
-        (_magnetisation ** 2).mean(axis=-1) - _magnetisation.mean(axis=-1) ** 2
+        (_magnetisation ** 2).mean(axis=-1)
     ) / training_geometry.length ** 2
 
 

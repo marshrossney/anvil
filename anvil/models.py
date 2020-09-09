@@ -268,6 +268,7 @@ def spline_sandwich(
     activation="tanh",
     s_final_activation=None,
     symmetric_networks=True,
+    scale_sigma_before_spline=1,
     ):
     affine_1 = [
             coupling_pair(
@@ -295,8 +296,7 @@ def spline_sandwich(
         ]
     return Sequential(
         *affine_1,
-        layers.BatchNormLayer(scale=0.5 * sigma),
-        #layers.BatchNormLayer(scale=sigma),
+        layers.BatchNormLayer(scale=scale_sigma_before_spline * sigma),
         rational_quadratic_spline,
         *affine_2,
     )

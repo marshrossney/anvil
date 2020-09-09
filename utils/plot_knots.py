@@ -12,8 +12,8 @@ axes = [axes,]
 for i in range(1, n_layers + 1):
     ax = axes[i-1]
 
-    x_kp = np.loadtxt(f"x_kp_{i}.txt")
-    phi_kp = np.loadtxt(f"phi_kp_{i}.txt")
+    x_kp = np.loadtxt(f"x_kp_{i+1}.txt")
+    phi_kp = np.loadtxt(f"phi_kp_{i+1}.txt")
 
     ax.errorbar(
         x_kp.mean(axis=0),
