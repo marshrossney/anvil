@@ -220,7 +220,7 @@ def rational_quadratic_spline(
         *[
             coupling_pair(
                 layers.RationalQuadraticSplineLayer,
-                i + 2,
+                i + 3,
                 size_half,
                 interval=interval,
                 n_segments=n_segments,
@@ -254,9 +254,9 @@ def spline_affine(real_nvp, rational_quadratic_spline):
     return Sequential(rational_quadratic_spline, real_nvp)
 
 
-def affine_spline(real_nvp, rational_quadratic_spline, sigma):
+def affine_spline(real_nvp, rational_quadratic_spline, sigma, scale_sigma_before_spline=1):
     return Sequential(
-        real_nvp, layers.BatchNormLayer(scale=0.5 * sigma), rational_quadratic_spline
+        real_nvp, layers.BatchNormLayer(scale=scale_sigma_before_spline * sigma), rational_quadratic_spline
     )
 
 def spline_sandwich(

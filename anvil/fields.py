@@ -139,7 +139,7 @@ class ScalarField:
     def two_point_correlator(self):
         """Two point connected correlation function. Uses multiprocessing.
         numpy.ndarray, dimensions (*lattice_dimensions, *)"""
-        return self._two_point_correlator() - self.first_moment_sq
+        return self._two_point_correlator()# - self.first_moment_sq
 
     def boot_two_point_correlator(self, bootstrap_sample_size):
         """Two point connected correlation function for a bootstrap sample of ensembles
