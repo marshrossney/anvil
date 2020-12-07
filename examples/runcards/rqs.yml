@@ -1,0 +1,33 @@
+# Lattice
+lattice_length: 6
+lattice_dimension: 2
+
+# Target
+target: phi_four
+m_sq: -4
+lam: 1.0
+use_arxiv_version: false
+
+# Model
+base: normal
+sigma: 0.3
+model: rational_quadratic_spline
+model_spec:
+    hidden_shape: [72]
+    activation: tanh
+    n_segments: 8
+    interval: 1.5
+
+# Training
+n_batch: 1000
+epochs: 10000
+save_interval: 1000
+
+# Optimizer
+optimizer: adam
+learning_rate: 0.001
+
+# Scheduler
+verbose_scheduler: true
+lr_reduction_factor: 0.5
+
