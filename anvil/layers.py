@@ -92,8 +92,8 @@ class CouplingLayer(nn.Module):
                 (a[1], a[0]), *args, **kwargs
             )
 
-class AdditiveLayer(CouplingLayer):
 
+class AdditiveLayer(CouplingLayer):
     def __init__(
         self,
         i: int,
@@ -138,6 +138,7 @@ class AdditiveLayer(CouplingLayer):
             np.savetxt(f"layer_{self.i}.txt", phi_out)
 
         return phi_out, log_density
+
 
 class AffineLayer(CouplingLayer):
     r"""Extension to `nn.Module` for an affine transformation layer as described
@@ -223,9 +224,7 @@ class AffineLayer(CouplingLayer):
         if self.symmetric_networks:
             x_a_stand = x_a / x_a.std()
         else:
-            x_a_stand = (
-                (x_a - x_a.mean()) / x_a.std()  # reduce numerical instability
-            )
+            x_a_stand = (x_a - x_a.mean()) / x_a.std()  # reduce numerical instability
 
             x_a_stand[neg] = -x_a_stand[neg]  # still symmetric, but different approach
 
@@ -242,9 +241,8 @@ class AffineLayer(CouplingLayer):
         phi_out = self._join_func([x_a, phi_b], dim=1)
         log_density += s_out.sum(dim=1, keepdim=True)
 
-        if False:#phi_out.requires_grad is False:
+        if False:  # phi_out.requires_grad is False:
             np.savetxt(f"layer_{self.i}.txt", phi_out)
-            
 
         return phi_out, log_density
 
@@ -553,7 +551,8 @@ class QuadraticSplineLayer(CouplingLayer):
             (
                 torch.zeros(h_norm.shape[0], self.size_half, 1),
                 torch.cumsum(
-                    0.5 * w_norm * (h_norm[..., :-1] + h_norm[..., 1:]), dim=2,
+                    0.5 * w_norm * (h_norm[..., :-1] + h_norm[..., 1:]),
+                    dim=2,
                 ),
             ),
             dim=2,
@@ -691,7 +690,10 @@ class RationalQuadraticSplineLayer(CouplingLayer):
         h_raw, w_raw, d_raw = (
             self.network(x_a_stand)
             .view(-1, self.size_half, 3 * self.n_segments - 1)
-            .split((self.n_segments, self.n_segments, self.n_segments - 1), dim=2,)
+            .split(
+                (self.n_segments, self.n_segments, self.n_segments - 1),
+                dim=2,
+            )
         )
 
         if self.force_symmetry:
@@ -717,13 +719,20 @@ class RationalQuadraticSplineLayer(CouplingLayer):
         )
         phi_knot_points = (
             torch.cat(
-                (torch.zeros(h_norm.shape[0], 1), torch.cumsum(h_norm, dim=1),), dim=1,
+                (
+                    torch.zeros(h_norm.shape[0], 1),
+                    torch.cumsum(h_norm, dim=1),
+                ),
+                dim=1,
             )
             - self.B
         )
 
         k_ind = (
-            searchsorted(x_knot_points.contiguous(), x_b_in.contiguous().view(-1, 1),)
+            searchsorted(
+                x_knot_points.contiguous(),
+                x_b_in.contiguous().view(-1, 1),
+            )
             - 1
         ).clamp(0, self.n_segments - 1)
 
@@ -756,15 +765,14 @@ class RationalQuadraticSplineLayer(CouplingLayer):
         phi_out = self._join_func([x_a, phi_b], dim=1)
         log_density -= torch.log(grad).sum(dim=1)
 
-        if False:#phi_out.requires_grad is False:
-            
+        if False:  # phi_out.requires_grad is False:
+
             np.savetxt(f"layer_{self.i}.txt", phi_out)
             np.savetxt(f"x_kp_{self.i}.txt", x_knot_points)
             np.savetxt(f"phi_kp_{self.i}.txt", phi_knot_points)
             np.savetxt("h.txt", h_norm[0:4, :])
             np.savetxt("w.txt", w_norm[0:4, :])
             np.savetxt("d.txt", d_pad[0:4, :])
-            
 
         return phi_out, log_density
 
@@ -823,6 +831,7 @@ class CircularSplineLayer(CouplingLayer):
 
     def __init__(
         self,
+        i,
         size_half: int,
         n_segments: int,
         hidden_shape: list,
@@ -830,15 +839,19 @@ class CircularSplineLayer(CouplingLayer):
         even_sites: bool,
     ):
         super().__init__(size_half, even_sites)
+        self.i = i
+        self.j = int(even_sites)
+
         self.size_half = size_half
         self.n_segments = n_segments
 
         self.network = NeuralNetwork(
-            size_in=size_half,
+            size_in=2 * size_half,
             size_out=size_half * 3 * n_segments,
             hidden_shape=hidden_shape,
             activation=activation,
-            final_activation=activation,
+            final_activation=None,
+            symmetric=False,
         )
         self.phase_shift = nn.Parameter(torch.rand(1))
 
@@ -847,13 +860,21 @@ class CircularSplineLayer(CouplingLayer):
 
         self.eps = 1e-6
 
-    def forward(self, x_input, log_density):
+    def forward(self, x_input, log_density, neg):
         """Forward pass of the rational quadratic spline layer."""
         x_a = x_input[:, self._a_ind]
         x_b = x_input[:, self._b_ind]
 
+        x_for_net = torch.cat(
+            [
+                torch.cos(x_a),
+                torch.sin(x_a),
+            ],
+            dim=1,
+        )
+
         h_raw, w_raw, d_raw = (
-            self.network((x_a - pi) / pi)
+            self.network(x_for_net)
             .view(-1, self.size_half, 3 * self.n_segments)
             .split((self.n_segments, self.n_segments, self.n_segments), dim=2)
         )
@@ -877,12 +898,16 @@ class CircularSplineLayer(CouplingLayer):
         )
 
         k_ind = (
-            searchsorted(
-                x_knot_points.contiguous().view(-1, self.n_segments + 1),
-                x_b.contiguous().view(-1, 1),
+            (
+                searchsorted(
+                    x_knot_points.contiguous().view(-1, self.n_segments + 1),
+                    x_b.contiguous().view(-1, 1),
+                )
+                - 1
             )
-            - 1
-        ).view(-1, self.size_half, 1)
+            .view(-1, self.size_half, 1)
+            .clamp(0, self.n_segments - 1)
+        )
 
         w_k = torch.gather(w_norm, 2, k_ind)
         h_k = torch.gather(h_norm, 2, k_ind)
@@ -913,6 +938,14 @@ class CircularSplineLayer(CouplingLayer):
 
         phi_out = self._join_func([x_a, phi_b], dim=1)
         log_density -= torch.log(grad).sum(dim=1)
+        
+        if phi_out.requires_grad is False:
+            #np.savetxt(f"layer_{self.i}.txt", phi_out)
+            np.savetxt(f"x_kp_{self.i}.txt", x_knot_points.view(-1, self.n_segments + 1))
+            np.savetxt(f"phi_kp_{self.i}.txt", phi_knot_points.view(-1, self.n_segments + 1))
+            np.savetxt("h.txt", h_norm.view(-1, self.n_segments)[0:4, :])
+            np.savetxt("w.txt", w_norm.view(-1, self.n_segments)[0:4, :])
+            np.savetxt("d.txt", d_norm.view(-1, self.n_segments)[0:4, :])
 
         return phi_out, log_density
 
@@ -1127,7 +1160,7 @@ class GlobalAffineLayer(nn.Module):
 
 class BatchNormLayer(nn.Module):
     """Performs batch normalisation on the input vector.
-    
+
     Unlike traditional batch normalisation, due to translational invariance we take
     averages over each dimension as well as the batch and scale every dimension by the
     same quantity.
@@ -1144,7 +1177,7 @@ class BatchNormLayer(nn.Module):
     Methods
     -------
     forward(x_input, log_density)
-        see docstring for anvil.layers 
+        see docstring for anvil.layers
     """
 
     def __init__(self, scale=1, learnable=False):
@@ -1156,7 +1189,7 @@ class BatchNormLayer(nn.Module):
             self.scale = nn.Parameter(Fm1(torch.tensor([scale])))
         else:
             self.scale = Fm1(torch.tensor([scale]))
-        
+
         self.eps = 0.00001
 
     def forward(self, x_input, log_density, neg):

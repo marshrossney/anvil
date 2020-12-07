@@ -502,9 +502,9 @@ class O2Action:
     """
     support = (0, 2 * pi)
 
-    def __init__(self, beta, geometry):
+    def __init__(self, geometry, couplings):
         super().__init__()
-        self.beta = beta
+        self.__dict__.update(couplings)
         self.lattice_size = geometry.length ** 2
         self.shift = geometry.get_shift()
 
@@ -610,8 +610,8 @@ def phi_four_action(geometry, couplings, parameterisation="standard"):
     return PhiFourAction(geometry, parameterisation, couplings)
 
 
-def o2_action(beta, geometry):
-    return O2Action(beta, geometry)
+def o2_action(geometry, couplings):
+    return O2Action(geometry, couplings)
 
 
 def o3_action(beta, geometry):

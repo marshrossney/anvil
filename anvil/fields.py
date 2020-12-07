@@ -69,9 +69,9 @@ class ScalarField:
         """Setter for coords which performs some basic checks (see _valid_field)."""
         self._coords = self._valid_ensemble(new)
         self._coords_pos = np.copy(self._coords)
-        sign = np.sign(self._coords_pos.sum(axis=0))
-        neg = np.squeeze(np.nonzero(sign < 0))
-        self._coords_pos[:, neg] = -self._coords_pos[:, neg]
+        #sign = np.sign(self._coords_pos.sum(axis=0))
+        #neg = np.squeeze(np.nonzero(sign < 0))
+        #self._coords_pos[:, neg] = -self._coords_pos[:, neg]
 
     def two_point_correlator_pos(self, bootstrap_sample_size=100):
         correlator = np.zeros((self.lattice.volume, bootstrap_sample_size))
@@ -204,6 +204,10 @@ class ClassicalSpinField(ScalarField):
         """Updates the spin configuration or ensemble (by updating coords), also checking
         that the spin vectors have unit norm."""
         self.coords = new  # calls coords.__set__
+    
+    @property
+    def magnetisation_series(self):
+        return np.sqrt((self.coords.sum(axis=0)**2).sum(axis=0))
 
     @property
     def first_moment_sq(self):
